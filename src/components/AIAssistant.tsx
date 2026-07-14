@@ -183,16 +183,18 @@ export function AIAssistant({ month }: { month: string }) {
         {messages.length === 0 ? (
           <div className="grid gap-3">
             <p className="muted text-sm">
-              Ask me anything about your money this month — or get a quick read.
+              Ask me anything about your money this month.
             </p>
-            <button
-              className="btn btn-primary !py-2 !text-sm"
-              onClick={analyzeMonth}
-              disabled={busy}
-            >
-              Analyze this month
-            </button>
             <div className="grid gap-1.5">
+              <button
+                onClick={analyzeMonth}
+                disabled={busy}
+                className="card-soft flex items-center gap-2 px-3 py-2 text-left text-sm hover:opacity-80"
+                style={{ color: "var(--mint)" }}
+              >
+                <Sparkle size={14} />
+                Analyze this month
+              </button>
               {EXAMPLES.map((ex) => (
                 <button
                   key={ex}

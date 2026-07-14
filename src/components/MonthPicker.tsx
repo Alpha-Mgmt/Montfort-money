@@ -54,8 +54,13 @@ export function MonthPicker({
       </button>
       {open && (
         <div
-          className="card absolute right-0 z-50 mt-2 w-64 p-4"
-          style={{ background: "var(--surface)" }}
+          className="absolute right-0 z-50 mt-2 w-64 rounded-2xl p-4"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
+            backdropFilter: "none",
+          }}
         >
           <div className="mb-3 flex items-center justify-between">
             <button

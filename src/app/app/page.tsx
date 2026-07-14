@@ -829,7 +829,13 @@ export default function MonthPage() {
   function CategoryRow({ cat, kind }: { cat: Category; kind: Kind }) {
     const rows = txByCat.get(cat.id) ?? [];
     const items = plannedByCat.get(cat.id) ?? [];
-    const loose = rows.filter((t) => !t.recurring_item_id);
+    // a tx is "loose" (tap to edit/delete) if it isn't linked to a plan item
+    // shown here — including ones whose plan item doesn't occur this month,
+    // so nothing you logged ever becomes impossible to remove
+    const shownItemIds = new Set(items.map((p) => p.item.id));
+    const loose = rows.filter(
+      (t) => !t.recurring_item_id || !shownItemIds.has(t.recurring_item_id)
+    );
     const spent = spentIn(cat.id);
     const plan = planFor(cat.id);
     const isEmpty = rows.length === 0 && items.length === 0;
@@ -1060,7 +1066,7 @@ export default function MonthPage() {
   return (
     <div className="grid gap-4">
       {/* Header — month control sized like the rail cards below it */}
-      <div className="grid items-center gap-3 lg:grid-cols-3 lg:gap-4">
+      <div className="relative z-30 grid items-center gap-3 lg:grid-cols-3 lg:gap-4">
         <h1 className="font-display text-2xl font-semibold lg:col-span-2">
           <span className="text-grad">{name ? `Hey, ${name}` : "Your month"}</span>
         </h1>

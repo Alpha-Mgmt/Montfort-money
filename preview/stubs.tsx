@@ -13,12 +13,7 @@ export default Link;
 
 // ---- next/navigation ----
 export function useRouter() {
-  return {
-    push: () => {},
-    replace: () => {},
-    refresh: () => {},
-    back: () => {},
-  };
+  return { push: () => {}, refresh: () => {}, back: () => {} };
 }
 export function usePathname() {
   return (globalThis as any).__previewPath ?? "/app";

@@ -97,16 +97,6 @@ export default function SettingsPage() {
     router.refresh();
   }
 
-  async function replaySetup() {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user)
-      await supabase.from("profiles").update({ onboarded: false }).eq("id", user.id);
-    router.push("/app/welcome");
-  }
-
   async function saveAccount() {
     if (!acctDraft?.name.trim()) return;
     setBusy(true);
@@ -351,105 +341,6 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Categories */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between">
-          <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Categories
-          </p>
-          <button
-            className="faint text-sm"
-            onClick={() => {
-              setCatDraft({ name: "", icon: "", kind: "expense", parent_id: "" });
-              setCatOpen(true);
-            }}
-          >
-            + Add
-          </button>
-        </div>
-        {(["expense", "income"] as Kind[]).map((k) => {
-          const { groups, standalone } = buildCategoryTree(cats, k);
-          return (
-            <div key={k} className="mt-4">
-              <p className="faint text-xs font-semibold uppercase tracking-wide">
-                {k === "expense" ? "Expenses" : "Income"}
-              </p>
-              <div className="mt-2 grid gap-2">
-                {groups.map((g) => (
-                  <div key={g.id} className="card-soft p-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-semibold">
-                        {g.name}
-                      </span>
-                      <button
-                        aria-label={`Delete ${g.name}`}
-                        className="faint"
-                        onClick={() => deleteCategory(g.id)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {g.children.map((c) => (
-                        <span
-                          key={c.id}
-                          className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm"
-                        >
-                          {c.name}
-                          <button
-                            aria-label={`Delete ${c.name}`}
-                            className="faint ml-0.5"
-                            onClick={() => deleteCategory(c.id)}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <button
-                        className="faint rounded-full border px-3 py-1 text-sm"
-                        onClick={() => {
-                          setCatDraft({
-                            name: "",
-                            icon: "",
-                            kind: k,
-                            parent_id: g.id,
-                          });
-                          setCatOpen(true);
-                        }}
-                      >
-                        + add inside
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex flex-wrap gap-2">
-                  {standalone.map((c) => (
-                    <span
-                      key={c.id}
-                      className="card-soft flex items-center gap-1.5 px-3 py-1.5 text-sm"
-                    >
-                      {c.name}
-                      <button
-                        aria-label={`Delete ${c.name}`}
-                        className="faint ml-1"
-                        onClick={() => deleteCategory(c.id)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <p className="faint mt-3 text-xs">
-          Tip: any category can become a group — just add categories inside it
-          (e.g. Cars → Mercedes). Deleting a category keeps its transactions;
-          they become uncategorized. Deleting a group deletes what's inside.
-        </p>
-      </div>
-
       {/* Danger zone */}
       <div className="card p-6" style={{ borderColor: "var(--over-soft)" }}>
         <p
@@ -460,35 +351,6 @@ export default function SettingsPage() {
         </p>
 
         <div className="mt-3">
-          <p className="text-sm font-medium">Clear one month</p>
-          <p className="muted mt-0.5 text-sm">
-            Deletes every transaction and plan amount in that month so you can
-            start it from zero. Debt balances and goal progress already
-            recorded stay as they are.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <input
-              className="input !w-40"
-              type="month"
-              value={resetMonth}
-              disabled={busy}
-              onChange={(e) => {
-                setResetMonth(e.target.value);
-                setArmMonth(false);
-              }}
-              aria-label="Month to clear"
-            />
-            <button
-              className={`btn ${armMonth ? "btn-danger" : "btn-ghost"}`}
-              onClick={clearMonth}
-              disabled={busy || !resetMonth}
-            >
-              {armMonth ? "Tap again to confirm" : "Clear month"}
-            </button>
-          </div>
-        </div>
-
-        <div className="divider mt-4 pt-4">
           <p className="text-sm font-medium">Reset everything</p>
           <p className="muted mt-0.5 text-sm">
             Wipes all transactions, plans, debts, investments, goals and tasks.
@@ -520,9 +382,6 @@ export default function SettingsPage() {
           Safari and use Share → “Add to Home Screen” to install it like an
           app.
         </p>
-        <button className="btn btn-ghost mt-4" onClick={replaySetup}>
-          Replay setup
-        </button>
       </div>
 
       {/* Account sheet */}
@@ -617,70 +476,6 @@ export default function SettingsPage() {
                 Archive account
               </button>
             )}
-          </div>
-        )}
-      </Sheet>
-
-      {/* Category sheet */}
-      <Sheet
-        open={catOpen}
-        onClose={() => setCatOpen(false)}
-        title="Add category"
-      >
-        {catDraft && (
-          <div className="grid gap-4">
-            <div>
-              <label className="label">Name</label>
-              <input
-                className="input"
-                placeholder="e.g. Travel"
-                value={catDraft.name}
-                onChange={(e) =>
-                  setCatDraft({ ...catDraft, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {(["expense", "income"] as Kind[]).map((k) => (
-                <button
-                  key={k}
-                  className={`btn ${catDraft.kind === k ? "btn-primary" : "btn-ghost"}`}
-                  onClick={() =>
-                    setCatDraft({ ...catDraft, kind: k, parent_id: "" })
-                  }
-                >
-                  {k === "expense" ? "Expense" : "Income"}
-                </button>
-              ))}
-            </div>
-            <div>
-              <label className="label">
-                Inside a group — optional (e.g. Mercedes inside Cars)
-              </label>
-              <select
-                className="input"
-                value={catDraft.parent_id}
-                onChange={(e) =>
-                  setCatDraft({ ...catDraft, parent_id: e.target.value })
-                }
-              >
-                <option value="">Top level (it can be a group itself)</option>
-                {cats
-                  .filter((c) => c.kind === catDraft.kind && !c.parent_id)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={saveCategory}
-              disabled={busy}
-            >
-              {busy ? "Saving…" : "Add category"}
-            </button>
           </div>
         )}
       </Sheet>

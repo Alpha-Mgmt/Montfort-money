@@ -6,11 +6,11 @@
 :root {
   --font-display: "Space Grotesk";
   --font-body: "Inter";
-  --bg: #070b0f;
-  --bg-soft: #0b1117;
-  --surface: #111a23;
-  --surface-2: #1a2530;
-  --border: rgba(185, 206, 221, 0.14);
+  --bg: #0e161f;
+  --bg-soft: #131e28;
+  --surface: #18242f;
+  --surface-2: #22303d;
+  --border: rgba(185, 206, 221, 0.16);
   --text: #eef4f8;
   --text-soft: #b9cedd;
   --text-faint: #8fabc0;
@@ -28,14 +28,14 @@
 }
 
 html.theme-light {
-  --bg: #f4f7fa;
-  --bg-soft: #eef4f8;
+  --bg: #eaf0f7;
+  --bg-soft: #e4ecf5;
   --surface: #ffffff;
-  --surface-2: #e9f0f5;
-  --border: rgba(17, 26, 35, 0.12);
-  --text: #0b1117;
-  --text-soft: #37485a;
-  --text-faint: #5d7386;
+  --surface-2: #e7eef8;
+  --border: rgba(30, 55, 90, 0.14);
+  --text: #0c1622;
+  --text-soft: #3a4c60;
+  --text-faint: #5f7488;
   --mint: #14996c;
   --mint-strong: #0e7f58;
   --mint-soft: rgba(20, 153, 108, 0.12);
@@ -59,11 +59,11 @@ body {
 /* dark default: aurora mesh — glass floats over a living background */
 body {
   background:
-    radial-gradient(50rem 36rem at 8% -12%, rgba(43, 211, 150, 0.17), transparent 55%),
-    radial-gradient(46rem 34rem at 92% -10%, rgba(56, 146, 244, 0.15), transparent 55%),
-    radial-gradient(38rem 30rem at 70% 38%, rgba(34, 197, 170, 0.06), transparent 60%),
-    radial-gradient(60rem 46rem at 45% 115%, rgba(139, 92, 246, 0.13), transparent 60%),
-    radial-gradient(28rem 24rem at -6% 65%, rgba(56, 146, 244, 0.07), transparent 60%),
+    radial-gradient(52rem 38rem at 6% -12%, rgba(43, 211, 150, 0.20), transparent 56%),
+    radial-gradient(48rem 36rem at 96% -8%, rgba(56, 146, 244, 0.18), transparent 56%),
+    radial-gradient(40rem 32rem at 78% 42%, rgba(45, 212, 191, 0.10), transparent 58%),
+    radial-gradient(30rem 26rem at 12% 48%, rgba(96, 165, 250, 0.10), transparent 60%),
+    radial-gradient(62rem 48rem at 48% 116%, rgba(139, 92, 246, 0.16), transparent 60%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -240,19 +240,20 @@ html.theme-light .input {
 
 html.theme-light body {
   background:
-    radial-gradient(56rem 40rem at 5% -15%, rgba(43, 211, 150, 0.18), transparent 58%),
-    radial-gradient(50rem 36rem at 95% -8%, rgba(96, 165, 250, 0.2), transparent 55%),
-    radial-gradient(40rem 32rem at 72% 40%, rgba(45, 191, 171, 0.08), transparent 60%),
-    radial-gradient(46rem 46rem at 45% 118%, rgba(167, 139, 250, 0.14), transparent 60%),
-    linear-gradient(165deg, #f3f8f8 0%, #edf2f9 55%, #f3f1fb 100%);
+    radial-gradient(56rem 42rem at 2% -16%, rgba(20, 200, 140, 0.30), transparent 56%),
+    radial-gradient(52rem 40rem at 98% -10%, rgba(70, 150, 250, 0.30), transparent 56%),
+    radial-gradient(44rem 34rem at 78% 34%, rgba(45, 200, 180, 0.14), transparent 58%),
+    radial-gradient(34rem 30rem at 14% 46%, rgba(96, 165, 250, 0.14), transparent 60%),
+    radial-gradient(50rem 48rem at 46% 120%, rgba(150, 120, 250, 0.22), transparent 60%),
+    linear-gradient(160deg, #eaf6f1 0%, #e9f0fa 52%, #f0ecfb 100%);
   background-attachment: fixed;
 }
 
 html.theme-light .card {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 1px 2px rgba(23, 43, 64, 0.04),
