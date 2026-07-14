@@ -50,6 +50,7 @@ import { QuickAdd } from "@/components/QuickAdd";
 import { ConfirmPay } from "@/components/ConfirmPay";
 import { LineItemAdd, type LineItemFreq } from "@/components/LineItemAdd";
 import { MonthPicker } from "@/components/MonthPicker";
+import { InsightsCard } from "@/components/InsightsCard";
 import { TxSheet, emptyTxDraft, type TxDraft } from "@/components/TxSheet";
 import { CategoryQuickSheet } from "@/components/CategoryQuickSheet";
 import {
@@ -1087,6 +1088,7 @@ export default function MonthPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <div className="grid gap-4 lg:col-span-2">
+            <InsightsCard month={month} />
             {/* Summary boxes: plan vs reality, with fill bars */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="card p-4">
