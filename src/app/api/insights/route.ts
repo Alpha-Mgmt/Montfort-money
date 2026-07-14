@@ -103,11 +103,11 @@ export async function POST(request: Request) {
 
   if (!summary.hasData) {
     return NextResponse.json({
-      headline: "Aún no hay nada que analizar",
+      headline: "Nothing to analyze yet",
       insights: [
         {
           tone: "tip",
-          text: "Agrega tus ingresos, gastos o una meta y vuelve — aquí te diré cómo vas y qué cuidar.",
+          text: "Add your income, expenses or a goal and come back — I'll tell you how you're tracking and what to watch.",
         },
       ] as Insight[],
       generated: false,
@@ -117,11 +117,11 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({
-      headline: "Falta conectar la IA",
+      headline: "AI not connected yet",
       insights: [
         {
           tone: "tip",
-          text: "El análisis con IA aún no está configurado en el servidor. En cuanto se agregue la llave, esta tarjeta cobra vida.",
+          text: "AI analysis isn't configured on the server yet. Once the key is added, this card comes alive.",
         },
       ] as Insight[],
       generated: false,
@@ -129,17 +129,18 @@ export async function POST(request: Request) {
   }
 
   const system =
-    "Eres el analista financiero personal de Montfort Money. Recibes un resumen ya calculado del mes de un usuario (montos en USD). " +
-    "Tu trabajo es darle 3 a 5 observaciones claras, útiles y accionables, en español, tono cercano y directo (tutea). " +
-    "Usa SOLO los números del resumen; nunca inventes cifras. Formatea el dinero como $1,234. Sé específico y breve — una o dos frases por observación. " +
-    "Prioriza: dónde se está pasando del plan, pagos fuertes que vienen, si las metas van a alcanzar, meses que pintan en rojo, y una recomendación práctica. " +
-    'Responde ÚNICAMENTE con JSON válido, sin texto extra, con esta forma: {"headline": string, "insights": [{"tone": "warn"|"good"|"tip", "text": string}]}. ' +
-    'Usa "warn" para alertas, "good" para lo que va bien, "tip" para recomendaciones.';
+    "You are the personal financial analyst for Montfort Money. You receive an already-computed summary of a user's month (amounts in USD). " +
+    "Your job is to give them 3 to 5 clear, useful, actionable observations, in English, in a warm and direct tone. " +
+    "Use ONLY the numbers in the summary; never make up figures. Format money as $1,234. Be specific and brief — one or two sentences per observation. " +
+    "Prioritize: where they're going over plan, big payments coming up, whether their goals are on track, months that look red, and one practical recommendation. " +
+    "You provide informational analysis, not licensed financial advice. " +
+    'Respond ONLY with valid JSON, no extra text, in this shape: {"headline": string, "insights": [{"tone": "warn"|"good"|"tip", "text": string}]}. ' +
+    'Use "warn" for alerts, "good" for what\'s going well, "tip" for recommendations.';
 
   const userMsg =
-    "Resumen del mes (JSON):\n" +
+    "Month summary (JSON):\n" +
     JSON.stringify(summary, null, 2) +
-    "\n\nGenera el análisis en el formato JSON indicado.";
+    "\n\nGenerate the analysis in the JSON format specified.";
 
   try {
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -162,11 +163,11 @@ export async function POST(request: Request) {
       console.error("Anthropic API error", resp.status, detail);
       return NextResponse.json(
         {
-          headline: "No pude generar el análisis",
+          headline: "Couldn't generate the analysis",
           insights: [
             {
               tone: "tip",
-              text: "Hubo un problema al contactar la IA. Intenta de nuevo en un momento.",
+              text: "There was a problem reaching the AI. Try again in a moment.",
             },
           ] as Insight[],
           generated: false,
@@ -184,9 +185,9 @@ export async function POST(request: Request) {
     console.error("insights route error", e);
     return NextResponse.json(
       {
-        headline: "No pude generar el análisis",
+        headline: "Couldn't generate the analysis",
         insights: [
-          { tone: "tip", text: "Intenta de nuevo en un momento." },
+          { tone: "tip", text: "Try again in a moment." },
         ] as Insight[],
         generated: false,
       },
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
 /** Pull the JSON object out of the model text, defensively. */
 function parseInsights(text: string): { headline: string; insights: Insight[] } {
   const fallback = {
-    headline: "Tu mes",
+    headline: "Your month",
     insights: [{ tone: "tip", text: text.slice(0, 300) }] as Insight[],
   };
   try {
@@ -215,7 +216,7 @@ function parseInsights(text: string): { headline: string; insights: Insight[] } 
           }))
       : [];
     return {
-      headline: typeof obj.headline === "string" ? obj.headline : "Tu mes",
+      headline: typeof obj.headline === "string" ? obj.headline : "Your month",
       insights: insights.length ? insights : fallback.insights,
     };
   } catch {

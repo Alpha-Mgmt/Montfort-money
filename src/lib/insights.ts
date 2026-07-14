@@ -206,6 +206,60 @@ export function buildMonthSummary(input: InsightInput): MonthSummary {
   };
 }
 
+export type AskInput = Omit<InsightInput, "txs"> & {
+  ytdTxs: Transaction[]; // Jan 1 of the viewed year through the viewed month
+};
+
+export type AskContext = {
+  monthSummary: MonthSummary;
+  yearToDate: {
+    year: number;
+    income: number;
+    expense: number;
+    byCategory: { category: string; kind: string; total: number }[];
+  };
+};
+
+/** Richer context for free-form questions: the month summary plus
+ *  year-to-date spending/income aggregated by category. */
+export function buildAskContext(input: AskInput): AskContext {
+  const { month, categories, ytdTxs } = input;
+  const next = addMonths(month, 1);
+  const monthTxs = ytdTxs.filter((t) => t.tx_date >= month && t.tx_date < next);
+
+  const monthSummary = buildMonthSummary({ ...input, txs: monthTxs });
+
+  const catName = new Map(categories.map((c) => [c.id, c.name]));
+  const agg = new Map<string, { category: string; kind: string; total: number }>();
+  let ytdIncome = 0;
+  let ytdExpense = 0;
+  for (const t of ytdTxs) {
+    if (t.kind === "income" && !t.debt_id) ytdIncome += t.amount;
+    if (t.kind === "expense") ytdExpense += t.amount;
+    if (t.debt_id || t.investment_id || t.goal_id) continue;
+    const name = t.category_id
+      ? (catName.get(t.category_id) ?? "Uncategorized")
+      : "Uncategorized";
+    const key = `${name}|${t.kind}`;
+    const e = agg.get(key) ?? { category: name, kind: t.kind, total: 0 };
+    e.total += t.amount;
+    agg.set(key, e);
+  }
+  const byCategory = [...agg.values()]
+    .map((e) => ({ ...e, total: round(e.total) }))
+    .sort((a, b) => b.total - a.total);
+
+  return {
+    monthSummary,
+    yearToDate: {
+      year: Number(month.slice(0, 4)),
+      income: round(ytdIncome),
+      expense: round(ytdExpense),
+      byCategory,
+    },
+  };
+}
+
 function goalNeededPerMonth(
   target: number,
   saved: number,

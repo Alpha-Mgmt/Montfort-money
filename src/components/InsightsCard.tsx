@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Insight = { tone: "warn" | "good" | "tip"; text: string };
-type Result = { headline: string; insights: Insight[]; generated?: boolean };
+type Analysis = { headline: string; insights: Insight[]; generated?: boolean };
+type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const toneColor: Record<string, string> = {
   warn: "var(--over)",
@@ -27,21 +28,41 @@ function Sparkle() {
   );
 }
 
-/** On-demand "read my month" card powered by the /api/insights route. */
-export function InsightsCard({ month }: { month: string }) {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<Result | null>(null);
-  const [error, setError] = useState(false);
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 animate-spin rounded-full border-2"
+      style={{ borderColor: "var(--mint)", borderTopColor: "transparent" }}
+    />
+  );
+}
 
-  // a new month = a fresh analysis
+/** Montfort AI: on-demand month insights + free-form chat over your data. */
+export function InsightsCard({ month }: { month: string }) {
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [insightsError, setInsightsError] = useState(false);
+
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [asking, setAsking] = useState(false);
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  // a new month = fresh analysis and chat
   useEffect(() => {
-    setResult(null);
-    setError(false);
+    setAnalysis(null);
+    setInsightsError(false);
+    setMessages([]);
+    setInput("");
   }, [month]);
 
-  async function generate() {
-    setLoading(true);
-    setError(false);
+  useEffect(() => {
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
+  }, [messages, asking]);
+
+  async function generateInsights() {
+    setLoadingInsights(true);
+    setInsightsError(false);
     try {
       const r = await fetch("/api/insights", {
         method: "POST",
@@ -49,12 +70,45 @@ export function InsightsCard({ month }: { month: string }) {
         body: JSON.stringify({ month }),
       });
       if (!r.ok) throw new Error(String(r.status));
-      const data = (await r.json()) as Result;
-      setResult(data);
+      setAnalysis((await r.json()) as Analysis);
     } catch {
-      setError(true);
+      setInsightsError(true);
     } finally {
-      setLoading(false);
+      setLoadingInsights(false);
+    }
+  }
+
+  async function ask() {
+    const q = input.trim();
+    if (!q || asking) return;
+    const next = [...messages, { role: "user" as const, content: q }];
+    setMessages(next);
+    setInput("");
+    setAsking(true);
+    try {
+      const r = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ month, messages: next }),
+      });
+      const data = await r.json();
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          content: data?.reply ?? "Sorry, I couldn't answer that.",
+        },
+      ]);
+    } catch {
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          content: "Something went wrong. Please try again.",
+        },
+      ]);
+    } finally {
+      setAsking(false);
     }
   }
 
@@ -68,58 +122,62 @@ export function InsightsCard({ month }: { month: string }) {
           >
             <Sparkle />
           </span>
-          <h2 className="font-display font-semibold">Tu mes con IA</h2>
+          <h2 className="font-display font-semibold">Montfort AI</h2>
         </div>
-        {result && !loading && (
-          <button className="faint text-xs hover:underline" onClick={generate}>
-            Volver a analizar
+        {analysis && !loadingInsights && (
+          <button
+            className="faint text-xs hover:underline"
+            onClick={generateInsights}
+          >
+            Refresh
           </button>
         )}
       </div>
 
-      {!result && !loading && (
+      {/* ---- month insights ---- */}
+      {!analysis && !loadingInsights && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="muted text-sm">
-            Un vistazo rápido: en qué te pasas, qué pagos vienen y cómo van tus
-            metas.
+            A quick read on your month: where you&apos;re over, what&apos;s
+            coming up, and how your goals are tracking.
           </p>
-          <button className="btn btn-primary !py-2 !text-sm" onClick={generate}>
-            Analizar mi mes
+          <button
+            className="btn btn-primary !py-2 !text-sm"
+            onClick={generateInsights}
+          >
+            Analyze this month
           </button>
         </div>
       )}
 
-      {loading && (
+      {loadingInsights && (
         <div className="mt-3 flex items-center gap-2 text-sm">
-          <span
-            className="inline-block h-3 w-3 animate-spin rounded-full border-2"
-            style={{
-              borderColor: "var(--mint)",
-              borderTopColor: "transparent",
-            }}
-          />
-          <span className="muted">Leyendo tu mes…</span>
+          <Spinner />
+          <span className="muted">Reading your month…</span>
         </div>
       )}
 
-      {error && !loading && (
+      {insightsError && !loadingInsights && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm" style={{ color: "var(--over)" }}>
-            No pude generar el análisis. Intenta de nuevo.
+            Couldn&apos;t generate the analysis.
           </p>
-          <button className="btn btn-ghost !py-2 !text-sm" onClick={generate}>
-            Reintentar
+          <button
+            className="btn btn-ghost !py-2 !text-sm"
+            onClick={generateInsights}
+          >
+            Retry
           </button>
         </div>
       )}
 
-      {result && !loading && (
+      {analysis && !loadingInsights && (
         <div className="mt-3">
           <p className="font-display text-base font-semibold">
-            {result.headline}
+            {analysis.headline}
           </p>
           <div className="mt-2 grid gap-2.5">
-            {result.insights.map((it, i) => (
+            {analysis.insights.map((it, i) => (
               <div key={i} className="flex gap-2.5">
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
@@ -129,14 +187,66 @@ export function InsightsCard({ month }: { month: string }) {
               </div>
             ))}
           </div>
-          {result.generated && (
-            <p className="faint mt-3 text-xs">
-              Generado con IA a partir de tus datos · puede equivocarse, tú
-              decides.
-            </p>
-          )}
         </div>
       )}
+
+      {/* ---- chat ---- */}
+      <div className="divider mt-4 pt-4">
+        {messages.length > 0 && (
+          <div
+            ref={threadRef}
+            className="mb-3 grid max-h-80 gap-2 overflow-y-auto"
+          >
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={m.role === "user" ? "flex justify-end" : "flex"}
+              >
+                <div
+                  className="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed"
+                  style={
+                    m.role === "user"
+                      ? { background: "var(--mint-soft)", color: "var(--text)" }
+                      : { background: "var(--surface-2)" }
+                  }
+                >
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                </div>
+              </div>
+            ))}
+            {asking && (
+              <div className="flex items-center gap-2 text-sm">
+                <Spinner />
+                <span className="muted">Thinking…</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            className="input !py-2 text-sm"
+            placeholder="Ask anything about your money…"
+            value={input}
+            disabled={asking}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask()}
+          />
+          <button
+            className="btn btn-primary !px-4 !py-2 !text-sm"
+            onClick={ask}
+            disabled={asking || !input.trim()}
+          >
+            Ask
+          </button>
+        </div>
+        {messages.length === 0 && (
+          <p className="faint mt-2 text-xs">
+            e.g. &ldquo;How much have I spent on Cars this year?&rdquo; ·
+            &ldquo;Can I afford $500 more this month?&rdquo;
+          </p>
+        )}
+      </div>
     </div>
   );
 }

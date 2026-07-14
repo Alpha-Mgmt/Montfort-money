@@ -129,6 +129,9 @@ function decls(base) {
     "top-1/2": [["top", "50%"]],
     "-translate-y-1/2": [["transform", "translateY(-50%)"]],
     "w-fit": [["width", "fit-content"]],
+    "whitespace-pre-wrap": [["white-space", "pre-wrap"]],
+    "max-h-80": [["max-height", "20rem"]],
+    "animate-spin": [["animation", "twspin 1s linear infinite"]],
   };
   if (simple[base]) return simple[base];
 
@@ -188,7 +191,7 @@ function esc(cls) {
   return cls.replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
 }
 
-let css = "";
+let css = "@keyframes twspin { to { transform: rotate(360deg); } }\n";
 const unknown = [];
 for (const t of [...tokens].sort()) {
   let variant = null;
