@@ -132,6 +132,19 @@ function decls(base) {
     "whitespace-pre-wrap": [["white-space", "pre-wrap"]],
     "max-h-80": [["max-height", "20rem"]],
     "animate-spin": [["animation", "twspin 1s linear infinite"]],
+    "justify-end": [["justify-content", "flex-end"]],
+    "shadow-lg": [["box-shadow", "0 10px 30px rgba(0,0,0,0.3)"]],
+    "border-b": [
+      ["border-bottom-width", "1px"],
+      ["border-bottom-style", "solid"],
+      ["border-bottom-color", "var(--border)"],
+    ],
+    "border-t": [
+      ["border-top-width", "1px"],
+      ["border-top-style", "solid"],
+      ["border-top-color", "var(--border)"],
+    ],
+    "overflow-hidden": [["overflow", "hidden"]],
   };
   if (simple[base]) return simple[base];
 
@@ -162,6 +175,8 @@ function decls(base) {
     return [["max-width", SIZES[m[1]]]];
   if (B === "max-h" && A) return [["max-height", A]];
   if (B === "max-w" && A) return [["max-width", A]];
+  if (B === "w" && A) return [["width", A]];
+  if (B === "h" && A) return [["height", A]];
   if ((m = base.match(/^text-(\w+)$/)) && TEXT[m[1]])
     return [["font-size", TEXT[m[1]][0]], ["line-height", TEXT[m[1]][1]]];
   if ((m = base.match(/^rounded(?:-(.+))?$/)) && ROUND[m[1] ?? ""] !== undefined)
