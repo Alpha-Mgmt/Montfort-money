@@ -55,6 +55,7 @@ const screens = [
   { name: "forecast", import: "../src/app/app/forecast/page", path: "/app/forecast", layout: true },
   { name: "tasks", import: "../src/app/app/tasks/page", path: "/app/tasks", layout: true },
   { name: "settings", import: "../src/app/app/settings/page", path: "/app/settings", layout: true },
+  { name: "welcome", import: "../src/app/app/welcome/page", path: "/app/welcome", layout: false },
 ];
 
 fs.mkdirSync(path.join(WORK, "entries"), { recursive: true });
