@@ -4,6 +4,8 @@
 
 /* ---------- Montfort dual theme (dark default, html.theme-light overrides) ---------- */
 :root {
+  --font-display: "Space Grotesk";
+  --font-body: "Inter";
   --bg: #070b0f;
   --bg-soft: #0b1117;
   --surface: #111a23;

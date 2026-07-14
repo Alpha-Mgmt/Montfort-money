@@ -1,13 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
-const display = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-display",
-});
-const body = Inter({ subsets: ["latin"], variable: "--font-body" });
+// Fonts load in the browser at runtime (see <link> below) so the build
+// never depends on fetching anything from Google — hermetic builds.
 
 export const metadata: Metadata = {
   title: "Montfort Money",
@@ -44,8 +40,18 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Space+Grotesk:wght@500..700&display=swap"
+        />
       </head>
-      <body className={`${display.variable} ${body.variable}`}>
+      <body>
         {children}
         <Analytics />
       </body>
