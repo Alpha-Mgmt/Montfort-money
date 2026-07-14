@@ -60,7 +60,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/app");
+    router.push("/app/welcome");
     router.refresh();
   }
 

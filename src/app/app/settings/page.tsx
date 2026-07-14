@@ -97,6 +97,16 @@ export default function SettingsPage() {
     router.refresh();
   }
 
+  async function replaySetup() {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user)
+      await supabase.from("profiles").update({ onboarded: false }).eq("id", user.id);
+    router.push("/app/welcome");
+  }
+
   async function saveAccount() {
     if (!acctDraft?.name.trim()) return;
     setBusy(true);
@@ -510,6 +520,9 @@ export default function SettingsPage() {
           Safari and use Share → “Add to Home Screen” to install it like an
           app.
         </p>
+        <button className="btn btn-ghost mt-4" onClick={replaySetup}>
+          Replay setup
+        </button>
       </div>
 
       {/* Account sheet */}

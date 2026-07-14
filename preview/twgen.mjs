@@ -145,6 +145,7 @@ function decls(base) {
       ["border-top-color", "var(--border)"],
     ],
     "overflow-hidden": [["overflow", "hidden"]],
+    "min-h-full": [["min-height", "100%"]],
   };
   if (simple[base]) return simple[base];
 
