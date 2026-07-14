@@ -101,6 +101,7 @@ export default function MonthPage() {
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
   const [catSheetKind, setCatSheetKind] = useState<Kind | null>(null);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   function toggleCollapse(id: string) {
     setCollapsed((prev) => {
@@ -1094,171 +1095,150 @@ export default function MonthPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <div className="grid gap-4 lg:col-span-2">
-            {/* Summary boxes: plan vs reality, with fill bars */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="card p-4">
-                <div className="flex items-baseline justify-between">
+            {/* Simple summary — three numbers, details on demand */}
+            <div className="card p-5">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
                   <p className="faint text-xs font-semibold uppercase tracking-wide">
                     Income
                   </p>
+                  <p
+                    className="font-display text-xl font-semibold"
+                    style={{ color: "var(--mint)" }}
+                  >
+                    {money(incomeTotal)}
+                  </p>
                   {planIncome > 0 && (
-                    <p className="muted text-xs font-medium">
-                      plan {money(planIncome)}
-                    </p>
+                    <p className="faint text-xs">of {money(planIncome)}</p>
                   )}
                 </div>
-                <p
-                  className="font-display text-xl font-semibold"
-                  style={{ color: "var(--mint)" }}
-                >
-                  {money(incomeTotal)}
-                </p>
-                {planIncome > 0 && (
-                  <>
-                    <div className="mt-1.5">
-                      <ProgressBar
-                        spent={Math.min(incomeTotal, planIncome)}
-                        limit={planIncome}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs">
-                      <span
-                        style={{
-                          color:
-                            incomeTotal >= planIncome
-                              ? "var(--mint)"
-                              : "var(--text-soft)",
-                        }}
-                      >
-                        {incomeTotal >= planIncome
-                          ? "Plan complete"
-                          : `${money(planIncome - incomeTotal)} still to come`}
-                      </span>
-                    </p>
-                  </>
-                )}
-                {invMonthlyIncome > 0 && (
-                  <div className="divider mt-2 flex justify-between pt-1.5 text-xs">
-                    <span className="faint">Investments this month</span>
-                    <span style={{ color: "var(--mint)" }}>
-                      +{money(invMonthlyIncome)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="card p-4">
-                <div className="flex items-baseline justify-between">
+                <div>
                   <p className="faint text-xs font-semibold uppercase tracking-wide">
-                    Expenses
+                    Spent
+                  </p>
+                  <p className="font-display text-xl font-semibold">
+                    {money(expenseTotal)}
                   </p>
                   {planExpense > 0 && (
-                    <p className="muted text-xs font-medium">
-                      plan {money(planExpense)}
+                    <p className="faint text-xs">of {money(planExpense)}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="faint text-xs font-semibold uppercase tracking-wide">
+                    Left
+                  </p>
+                  <p
+                    className="font-display text-xl font-semibold"
+                    style={{ color: net >= 0 ? "var(--mint)" : "var(--over)" }}
+                  >
+                    {net >= 0 ? "" : "−"}
+                    {money(Math.abs(net))}
+                  </p>
+                  {planIncome - planExpense !== 0 && (
+                    <p className="faint text-xs">
+                      {planIncome - planExpense >= 0 ? "+" : "−"}
+                      {money(Math.abs(planIncome - planExpense))} planned
                     </p>
                   )}
                 </div>
-                <p className="font-display text-xl font-semibold">
-                  {money(expenseTotal)}
-                </p>
-                {planExpense > 0 && (
-                  <>
-                    <div className="mt-1.5">
-                      <ProgressBar spent={expenseTotal} limit={planExpense} />
-                    </div>
-                    <p className="mt-1 text-xs">
-                      <span
-                        style={{
-                          color:
-                            expenseTotal > planExpense
-                              ? "var(--over)"
-                              : "var(--mint)",
-                        }}
-                      >
-                        {expenseTotal > planExpense
-                          ? `${money(expenseTotal - planExpense)} over plan`
-                          : `${money(planExpense - expenseTotal)} remaining`}
-                      </span>
-                    </p>
-                  </>
-                )}
-                {(debtPaidTotal > 0 ||
-                  invContribTotal > 0 ||
-                  goalContribTotal > 0) && (
-                  <div className="divider mt-2 grid gap-0.5 pt-1.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="faint">Spending</span>
-                      <span className="muted">{money(spendingOnly)}</span>
-                    </div>
-                    {debtPaidTotal > 0 && (
-                      <div className="flex justify-between">
-                        <span className="faint">To debt</span>
-                        <span className="muted">{money(debtPaidTotal)}</span>
-                      </div>
-                    )}
-                    {invContribTotal > 0 && (
-                      <div className="flex justify-between">
-                        <span className="faint">Invested</span>
-                        <span className="muted">{money(invContribTotal)}</span>
-                      </div>
-                    )}
-                    {goalContribTotal > 0 && (
-                      <div className="flex justify-between">
-                        <span className="faint">To goals</span>
-                        <span className="muted">{money(goalContribTotal)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
-              <div className="card p-4">
-                <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Net
-                </p>
-                <p
-                  className="font-display text-xl font-semibold"
-                  style={{ color: net >= 0 ? "var(--mint)" : "var(--over)" }}
-                >
-                  {net >= 0 ? "+" : "−"}
-                  {money(Math.abs(net))}
-                  <span className="faint text-xs font-normal"> so far</span>
-                </p>
-                {planIncome - planExpense !== 0 && (
-                  <p className="muted mt-0.5 text-xs font-medium">
-                    By end of month:{" "}
-                    <span
-                      style={{
-                        color:
-                          planIncome - planExpense >= 0
-                            ? "var(--mint)"
-                            : "var(--over)",
-                      }}
-                    >
-                      {planIncome - planExpense >= 0 ? "+" : "−"}
-                      {money(Math.abs(planIncome - planExpense))}
-                    </span>{" "}
-                    planned
-                  </p>
-                )}
-                {goalsPlanMonthly > 0 && (
-                  <div className="divider mt-2 pt-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="faint">Goals</span>
-                      <span className="muted">
-                        {money(goalContribTotal)} / {money(goalsPlanMonthly)}
-                        /mo
-                      </span>
-                    </div>
-                    <div className="mt-1">
-                      <ProgressBar
-                        spent={Math.min(goalContribTotal, goalsPlanMonthly)}
-                        limit={goalsPlanMonthly}
-                      />
+              <button
+                className="faint mt-3 flex items-center gap-1 text-xs hover:underline"
+                onClick={() => setSummaryOpen((v) => !v)}
+              >
+                {summaryOpen ? "Hide breakdown ▴" : "Show breakdown ▾"}
+              </button>
+
+              {summaryOpen && (
+                <div className="divider mt-3 grid gap-3 pt-3 text-sm">
+                  <div>
+                    <p className="faint mb-1 text-xs font-semibold uppercase tracking-wide">
+                      Coming in
+                    </p>
+                    <div className="grid gap-0.5">
+                      {cats
+                        .filter((c) => c.kind === "income")
+                        .map((c) => {
+                          const rec = (txByCat.get(c.id) ?? [])
+                            .filter((t) => t.kind === "income")
+                            .reduce((s, t) => s + t.amount, 0);
+                          const plan = planFor(c.id);
+                          if (rec <= 0 && plan <= 0) return null;
+                          return (
+                            <div key={c.id} className="flex justify-between">
+                              <span className="muted">{c.name}</span>
+                              <span style={{ color: "var(--mint)" }}>
+                                {money(rec)}
+                                {plan > rec && (
+                                  <span className="faint">
+                                    {" "}
+                                    / {money(plan)}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      {invMonthlyIncome > 0 && (
+                        <div className="flex justify-between">
+                          <span className="faint">Investments (est.)</span>
+                          <span style={{ color: "var(--mint)" }}>
+                            +{money(invMonthlyIncome)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
+
+                  <div>
+                    <p className="faint mb-1 text-xs font-semibold uppercase tracking-wide">
+                      Going out
+                    </p>
+                    <div className="grid gap-0.5">
+                      <div className="flex justify-between">
+                        <span className="muted">Spending</span>
+                        <span>{money(spendingOnly)}</span>
+                      </div>
+                      {debtPaidTotal > 0 && (
+                        <div className="flex justify-between">
+                          <span className="muted">To debt</span>
+                          <span>{money(debtPaidTotal)}</span>
+                        </div>
+                      )}
+                      {invContribTotal > 0 && (
+                        <div className="flex justify-between">
+                          <span className="muted">Invested</span>
+                          <span>{money(invContribTotal)}</span>
+                        </div>
+                      )}
+                      {goalContribTotal > 0 && (
+                        <div className="flex justify-between">
+                          <span className="muted">To goals</span>
+                          <span>{money(goalContribTotal)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {goalsPlanMonthly > 0 && (
+                    <div>
+                      <div className="flex justify-between">
+                        <span className="faint">Goals this month</span>
+                        <span className="muted">
+                          {money(goalContribTotal)} / {money(goalsPlanMonthly)}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        <ProgressBar
+                          spent={Math.min(goalContribTotal, goalsPlanMonthly)}
+                          limit={goalsPlanMonthly}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {isFuture && (
               <p className="faint -mt-2 text-xs">
