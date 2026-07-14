@@ -200,27 +200,29 @@ export default function WelcomePage() {
   async function saveCategoryBlocks(blocks: CatBlock[], kind: "income" | "expense") {
     const uid = await userId();
     const supabase = createClient();
-    const existing = new Map(
+    const existing = new Map<string, string>(
       cats
         .filter((c) => c.kind === kind)
-        .map((c) => [c.name.trim().toLowerCase(), c.id])
+        .map((c) => [c.name.trim().toLowerCase(), c.id] as [string, string])
     );
     const itemRows: any[] = [];
     for (const b of blocks) {
       const cname = b.name.trim();
       const lines = b.lines.filter((l) => l.name.trim() && parseFloat(l.amount) > 0);
       if (!cname || lines.length === 0) continue;
-      let catId = existing.get(cname.toLowerCase());
+      let catId: string | undefined = existing.get(cname.toLowerCase());
       if (!catId) {
         const { data: created } = await supabase
           .from("categories")
           .insert({ user_id: uid, name: cname, icon: "", kind })
           .select("id")
           .single();
-        if (!created) continue;
-        catId = created.id;
-        existing.set(cname.toLowerCase(), catId);
+        const newId = created?.id as string | undefined;
+        if (!newId) continue;
+        catId = newId;
+        existing.set(cname.toLowerCase(), newId);
       }
+      if (!catId) continue;
       for (const l of lines) {
         itemRows.push({
           user_id: uid,
