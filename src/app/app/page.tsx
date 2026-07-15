@@ -101,7 +101,15 @@ export default function MonthPage() {
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
   const [catSheetKind, setCatSheetKind] = useState<Kind | null>(null);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [openBoxes, setOpenBoxes] = useState<Set<string>>(new Set());
+  function toggleBox(id: string) {
+    setOpenBoxes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   function toggleCollapse(id: string) {
     setCollapsed((prev) => {
@@ -719,13 +727,23 @@ export default function MonthPage() {
             <span className="truncate">{item.title}</span>
             <span className="faint text-xs">{open ? "▾" : "▸"}</span>
           </button>
-          <span className="shrink-0 text-sm">
-            <span className={received > 0 ? "muted" : "faint"}>
+          <button
+            className="shrink-0 text-sm hover:opacity-80"
+            title={received > 0 ? "Tap to edit what you logged" : undefined}
+            onClick={() => {
+              if (linked.length === 1) editTx(linked[0]);
+              else setExpandedItem(open ? null : item.id);
+            }}
+          >
+            <span
+              className={received > 0 ? "muted underline-offset-2" : "faint"}
+              style={received > 0 ? { textDecorationLine: "underline" } : undefined}
+            >
               {money(received)}
             </span>
             <span className="muted"> / </span>
             <span className="muted font-medium">{money(planTotal)}</span>
-          </span>
+          </button>
           {!isFuture && (
             <ConfirmPay
               amount={item.amount}
@@ -1095,150 +1113,184 @@ export default function MonthPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <div className="grid gap-4 lg:col-span-2">
-            {/* Simple summary — three numbers, details on demand */}
-            <div className="card p-5">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="faint text-xs font-semibold uppercase tracking-wide">
-                    Income
-                  </p>
-                  <p
-                    className="font-display text-xl font-semibold"
-                    style={{ color: "var(--mint)" }}
-                  >
-                    {money(incomeTotal)}
-                  </p>
-                  {planIncome > 0 && (
+            {/* Three summary boxes — each with its own breakdown */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {/* Income */}
+              <div className="card p-4">
+                <p className="faint text-xs font-semibold uppercase tracking-wide">
+                  Income
+                </p>
+                <p
+                  className="font-display text-xl font-semibold"
+                  style={{ color: "var(--mint)" }}
+                >
+                  {money(incomeTotal)}
+                </p>
+                {planIncome > 0 && (
+                  <>
                     <p className="faint text-xs">of {money(planIncome)}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="faint text-xs font-semibold uppercase tracking-wide">
-                    Spent
-                  </p>
-                  <p className="font-display text-xl font-semibold">
-                    {money(expenseTotal)}
-                  </p>
-                  {planExpense > 0 && (
-                    <p className="faint text-xs">of {money(planExpense)}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="faint text-xs font-semibold uppercase tracking-wide">
-                    Left
-                  </p>
-                  <p
-                    className="font-display text-xl font-semibold"
-                    style={{ color: net >= 0 ? "var(--mint)" : "var(--over)" }}
-                  >
-                    {net >= 0 ? "" : "−"}
-                    {money(Math.abs(net))}
-                  </p>
-                  {planIncome - planExpense !== 0 && (
-                    <p className="faint text-xs">
-                      {planIncome - planExpense >= 0 ? "+" : "−"}
-                      {money(Math.abs(planIncome - planExpense))} planned
-                    </p>
-                  )}
-                </div>
+                    <div className="mt-1.5">
+                      <ProgressBar
+                        spent={Math.min(incomeTotal, planIncome)}
+                        limit={planIncome}
+                      />
+                    </div>
+                  </>
+                )}
+                <button
+                  className="faint mt-2 text-xs hover:underline"
+                  onClick={() => toggleBox("income")}
+                >
+                  {openBoxes.has("income") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                </button>
+                {openBoxes.has("income") && (
+                  <div className="divider mt-2 grid gap-0.5 pt-2 text-xs">
+                    {cats
+                      .filter((c) => c.kind === "income")
+                      .map((c) => {
+                        const rec = (txByCat.get(c.id) ?? [])
+                          .filter((t) => t.kind === "income")
+                          .reduce((s, t) => s + t.amount, 0);
+                        const plan = planFor(c.id);
+                        if (rec <= 0 && plan <= 0) return null;
+                        return (
+                          <div key={c.id} className="flex justify-between">
+                            <span className="muted truncate">{c.name}</span>
+                            <span
+                              className="shrink-0"
+                              style={{ color: "var(--mint)" }}
+                            >
+                              {money(rec)}
+                              {plan > rec && (
+                                <span className="faint"> / {money(plan)}</span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    {invMonthlyIncome > 0 && (
+                      <div className="flex justify-between">
+                        <span className="faint truncate">Investments (est.)</span>
+                        <span
+                          className="shrink-0"
+                          style={{ color: "var(--mint)" }}
+                        >
+                          +{money(invMonthlyIncome)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <button
-                className="faint mt-3 flex items-center gap-1 text-xs hover:underline"
-                onClick={() => setSummaryOpen((v) => !v)}
-              >
-                {summaryOpen ? "Hide breakdown ▴" : "Show breakdown ▾"}
-              </button>
-
-              {summaryOpen && (
-                <div className="divider mt-3 grid gap-3 pt-3 text-sm">
-                  <div>
-                    <p className="faint mb-1 text-xs font-semibold uppercase tracking-wide">
-                      Coming in
-                    </p>
-                    <div className="grid gap-0.5">
-                      {cats
-                        .filter((c) => c.kind === "income")
-                        .map((c) => {
-                          const rec = (txByCat.get(c.id) ?? [])
-                            .filter((t) => t.kind === "income")
-                            .reduce((s, t) => s + t.amount, 0);
-                          const plan = planFor(c.id);
-                          if (rec <= 0 && plan <= 0) return null;
-                          return (
-                            <div key={c.id} className="flex justify-between">
-                              <span className="muted">{c.name}</span>
-                              <span style={{ color: "var(--mint)" }}>
-                                {money(rec)}
-                                {plan > rec && (
-                                  <span className="faint">
-                                    {" "}
-                                    / {money(plan)}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      {invMonthlyIncome > 0 && (
-                        <div className="flex justify-between">
-                          <span className="faint">Investments (est.)</span>
-                          <span style={{ color: "var(--mint)" }}>
-                            +{money(invMonthlyIncome)}
-                          </span>
-                        </div>
-                      )}
+              {/* Spent */}
+              <div className="card p-4">
+                <p className="faint text-xs font-semibold uppercase tracking-wide">
+                  Spent
+                </p>
+                <p className="font-display text-xl font-semibold">
+                  {money(expenseTotal)}
+                </p>
+                {planExpense > 0 && (
+                  <>
+                    <p className="faint text-xs">of {money(planExpense)}</p>
+                    <div className="mt-1.5">
+                      <ProgressBar spent={expenseTotal} limit={planExpense} />
                     </div>
-                  </div>
-
-                  <div>
-                    <p className="faint mb-1 text-xs font-semibold uppercase tracking-wide">
-                      Going out
-                    </p>
-                    <div className="grid gap-0.5">
+                  </>
+                )}
+                <button
+                  className="faint mt-2 text-xs hover:underline"
+                  onClick={() => toggleBox("spent")}
+                >
+                  {openBoxes.has("spent") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                </button>
+                {openBoxes.has("spent") && (
+                  <div className="divider mt-2 grid gap-0.5 pt-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="muted">Spending</span>
+                      <span>{money(spendingOnly)}</span>
+                    </div>
+                    {debtPaidTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="muted">Spending</span>
-                        <span>{money(spendingOnly)}</span>
+                        <span className="muted">To debt</span>
+                        <span>{money(debtPaidTotal)}</span>
                       </div>
-                      {debtPaidTotal > 0 && (
-                        <div className="flex justify-between">
-                          <span className="muted">To debt</span>
-                          <span>{money(debtPaidTotal)}</span>
-                        </div>
-                      )}
-                      {invContribTotal > 0 && (
-                        <div className="flex justify-between">
-                          <span className="muted">Invested</span>
-                          <span>{money(invContribTotal)}</span>
-                        </div>
-                      )}
-                      {goalContribTotal > 0 && (
-                        <div className="flex justify-between">
-                          <span className="muted">To goals</span>
-                          <span>{money(goalContribTotal)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {goalsPlanMonthly > 0 && (
-                    <div>
+                    )}
+                    {invContribTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="faint">Goals this month</span>
-                        <span className="muted">
+                        <span className="muted">Invested</span>
+                        <span>{money(invContribTotal)}</span>
+                      </div>
+                    )}
+                    {goalContribTotal > 0 && (
+                      <div className="flex justify-between">
+                        <span className="muted">To goals</span>
+                        <span>{money(goalContribTotal)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Left */}
+              <div className="card p-4">
+                <p className="faint text-xs font-semibold uppercase tracking-wide">
+                  Left
+                </p>
+                <p
+                  className="font-display text-xl font-semibold"
+                  style={{ color: net >= 0 ? "var(--mint)" : "var(--over)" }}
+                >
+                  {net >= 0 ? "" : "−"}
+                  {money(Math.abs(net))}
+                </p>
+                {planIncome - planExpense !== 0 && (
+                  <p className="faint text-xs">
+                    {planIncome - planExpense >= 0 ? "+" : "−"}
+                    {money(Math.abs(planIncome - planExpense))} planned
+                  </p>
+                )}
+                <button
+                  className="faint mt-2 text-xs hover:underline"
+                  onClick={() => toggleBox("left")}
+                >
+                  {openBoxes.has("left") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                </button>
+                {openBoxes.has("left") && (
+                  <div className="divider mt-2 grid gap-1 pt-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="muted">Now</span>
+                      <span>
+                        {net >= 0 ? "+" : "−"}
+                        {money(Math.abs(net))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="muted">Planned end of month</span>
+                      <span
+                        style={{
+                          color:
+                            planIncome - planExpense >= 0
+                              ? "var(--mint)"
+                              : "var(--over)",
+                        }}
+                      >
+                        {planIncome - planExpense >= 0 ? "+" : "−"}
+                        {money(Math.abs(planIncome - planExpense))}
+                      </span>
+                    </div>
+                    {goalsPlanMonthly > 0 && (
+                      <div className="flex justify-between">
+                        <span className="muted">Goals this month</span>
+                        <span>
                           {money(goalContribTotal)} / {money(goalsPlanMonthly)}
                         </span>
                       </div>
-                      <div className="mt-1">
-                        <ProgressBar
-                          spent={Math.min(goalContribTotal, goalsPlanMonthly)}
-                          limit={goalsPlanMonthly}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             {isFuture && (
               <p className="faint -mt-2 text-xs">
@@ -1717,58 +1769,64 @@ export default function MonthPage() {
             {runway && (
               <div className="card p-5">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  To payday · {shortDate(runway.nextCheck)}
+                  Safe to spend
                 </p>
-                <div className="mt-2 grid gap-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="muted">Current cash</span>
-                    <span className="font-medium">{money(runway.onHand)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="muted">Bills before payday</span>
-                    <span>−{money(runway.dueSum)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="muted">Everyday spending (est.)</span>
-                    <span>−{money(runway.everyday)}</span>
-                  </div>
-                </div>
-                <div className="divider mt-3 pt-2.5">
-                  <p className="faint text-xs font-semibold uppercase tracking-wide">
-                    Safe to spend
-                  </p>
-                  <p
-                    className={`font-display text-2xl font-semibold ${
-                      runway.covered ? "glow-mint" : "glow-over"
-                    }`}
-                    style={{
-                      color: runway.covered ? "var(--mint)" : "var(--over)",
-                    }}
-                  >
-                    {runway.covered ? "" : "−"}
-                    {money(
-                      Math.abs(
-                        runway.onHand - runway.dueSum - runway.everyday
-                      )
-                    )}
-                  </p>
-                </div>
+                <p
+                  className={`font-display text-3xl font-semibold ${
+                    runway.covered ? "glow-mint" : "glow-over"
+                  }`}
+                  style={{
+                    color: runway.covered ? "var(--mint)" : "var(--over)",
+                  }}
+                >
+                  {runway.covered ? "" : "−"}
+                  {money(
+                    Math.abs(runway.onHand - runway.dueSum - runway.everyday)
+                  )}
+                </p>
+                <p className="muted mt-1 text-sm">
+                  before your next paycheck, {shortDate(runway.nextCheck)}
+                </p>
                 {!runway.covered && (
-                  <>
-                    <p className="mt-1.5 text-sm" style={{ color: "var(--over)" }}>
-                      ~{money(runway.short)} short. Could move:
-                    </p>
-                    <div className="mt-1 grid gap-1 text-sm">
-                      {runway.pushable.map((b) => (
-                        <div key={b.key} className="flex justify-between">
-                          <span className="muted truncate">{b.title}</span>
-                          <span className="faint shrink-0">
-                            {money(b.amount)} · {shortDate(b.date)}
-                          </span>
-                        </div>
-                      ))}
+                  <p className="mt-1 text-sm" style={{ color: "var(--over)" }}>
+                    ~{money(runway.short)} short this stretch
+                  </p>
+                )}
+
+                <button
+                  className="faint mt-3 text-xs hover:underline"
+                  onClick={() => toggleBox("runway")}
+                >
+                  {openBoxes.has("runway") ? "Hide the math ▴" : "How's this figured? ▾"}
+                </button>
+                {openBoxes.has("runway") && (
+                  <div className="divider mt-2 grid gap-1 pt-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="muted">Cash on hand</span>
+                      <span>{money(runway.onHand)}</span>
                     </div>
-                  </>
+                    <div className="flex justify-between">
+                      <span className="muted">Bills coming</span>
+                      <span>−{money(runway.dueSum)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="muted">Everyday spending (est.)</span>
+                      <span>−{money(runway.everyday)}</span>
+                    </div>
+                    {!runway.covered && runway.pushable.length > 0 && (
+                      <div className="divider mt-1 pt-1.5">
+                        <p className="faint mb-1 text-xs">Could push:</p>
+                        {runway.pushable.map((b) => (
+                          <div key={b.key} className="flex justify-between">
+                            <span className="muted truncate">{b.title}</span>
+                            <span className="faint shrink-0">
+                              {money(b.amount)} · {shortDate(b.date)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
