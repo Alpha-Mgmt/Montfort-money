@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { buildCategoryTree, fetchAccounts, fetchCategories } from "@/lib/data";
@@ -51,6 +52,9 @@ export default function SettingsPage() {
   const [armAll, setArmAll] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
 
+  const [feedback, setFeedback] = useState("");
+  const [fbSent, setFbSent] = useState(false);
+
   async function load() {
     const supabase = createClient();
     const [{ data: profile }, { data: userData }, a, c] = await Promise.all([
@@ -95,6 +99,24 @@ export default function SettingsPage() {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  async function sendFeedback() {
+    if (!feedback.trim()) return;
+    setBusy(true);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user)
+      await supabase.from("feedback").insert({
+        user_id: user.id,
+        message: feedback.trim(),
+        page: "settings",
+      });
+    setBusy(false);
+    setFeedback("");
+    setFbSent(true);
   }
 
   async function replaySetup() {
@@ -329,6 +351,38 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Feedback */}
+      <div className="card p-6">
+        <p className="faint text-xs font-semibold uppercase tracking-wide">
+          Suggestions
+        </p>
+        <p className="muted mt-1 text-sm">
+          We&apos;re building Montfort Money with you — this is the moment your
+          ideas shape it most. What would make it better?
+        </p>
+        {fbSent ? (
+          <p className="mt-3 text-sm" style={{ color: "var(--mint)" }}>
+            Got it — thank you. Tell us more anytime.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            <textarea
+              className="input min-h-20"
+              placeholder="A feature you want, something confusing, anything…"
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+            />
+            <button
+              className="btn btn-primary w-fit"
+              onClick={sendFeedback}
+              disabled={busy || !feedback.trim()}
+            >
+              {busy ? "Sending…" : "Send suggestion"}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* About */}
       <div className="card p-6">
         <p className="faint text-xs font-semibold uppercase tracking-wide">
@@ -339,6 +393,14 @@ export default function SettingsPage() {
           Safari and use Share → “Add to Home Screen” to install it like an
           app.
         </p>
+        <div className="faint mt-3 flex gap-4 text-sm">
+          <Link href="/privacy" className="hover:underline">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:underline">
+            Terms
+          </Link>
+        </div>
         <button className="btn btn-ghost mt-4" onClick={replaySetup}>
           Replay setup
         </button>

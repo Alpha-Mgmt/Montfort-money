@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Insight = { tone: "warn" | "good" | "tip"; text: string };
 type Analysis = { headline: string; insights: Insight[]; generated?: boolean };
@@ -50,6 +51,7 @@ export function AIAssistant({ month }: { month: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [feedbackMode, setFeedbackMode] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +59,7 @@ export function AIAssistant({ month }: { month: string }) {
   useEffect(() => {
     setMessages([]);
     setInput("");
+    setFeedbackMode(false);
   }, [month]);
 
   useEffect(() => {
@@ -89,7 +92,56 @@ export function AIAssistant({ month }: { month: string }) {
     }
   }
 
+  function startFeedback() {
+    setFeedbackMode(true);
+    setMessages((m) => [
+      ...m,
+      {
+        role: "assistant",
+        content:
+          "Love that you want to help shape this. What would make Montfort Money better for you? Type it below and I'll pass it straight to the team.",
+      },
+    ]);
+    inputRef.current?.focus();
+  }
+
+  async function saveFeedback(text: string) {
+    const q = text.trim();
+    if (!q || busy) return;
+    const next: Msg[] = [...messages, { role: "user", content: q }];
+    setMessages(next);
+    setInput("");
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user)
+        await supabase
+          .from("feedback")
+          .insert({ user_id: user.id, message: q, page: "assistant" });
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          content:
+            "Got it — thank you. That's exactly the kind of input that makes this better. Anything else? Ask me about your money or drop another idea.",
+        },
+      ]);
+    } catch {
+      setMessages([
+        ...next,
+        { role: "assistant", content: "Couldn't send that just now — try again." },
+      ]);
+    } finally {
+      setFeedbackMode(false);
+      setBusy(false);
+    }
+  }
+
   async function send(text: string) {
+    if (feedbackMode) return saveFeedback(text);
     const q = text.trim();
     if (!q || busy) return;
     const next: Msg[] = [...messages, { role: "user", content: q }];
@@ -206,6 +258,22 @@ export function AIAssistant({ month }: { month: string }) {
                 </button>
               ))}
             </div>
+            <div
+              className="rounded-xl p-3 text-sm"
+              style={{ background: "var(--mint-soft)" }}
+            >
+              <p className="muted">
+                We&apos;re building Montfort Money with you — got an idea or
+                something that bugs you?
+              </p>
+              <button
+                onClick={startFeedback}
+                className="mt-1.5 font-semibold hover:underline"
+                style={{ color: "var(--mint)" }}
+              >
+                Share a suggestion →
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-2.5">
@@ -263,7 +331,9 @@ export function AIAssistant({ month }: { month: string }) {
         <input
           ref={inputRef}
           className="input !py-2 text-sm"
-          placeholder="Ask about your money…"
+          placeholder={
+            feedbackMode ? "Type your suggestion…" : "Ask about your money…"
+          }
           value={input}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
@@ -274,7 +344,7 @@ export function AIAssistant({ month }: { month: string }) {
           onClick={() => send(input)}
           disabled={busy || !input.trim()}
         >
-          Ask
+          {feedbackMode ? "Send" : "Ask"}
         </button>
       </div>
     </div>

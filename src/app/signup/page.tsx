@@ -131,6 +131,17 @@ export default function SignupPage() {
           <button className="btn btn-primary mt-1" disabled={busy}>
             {busy ? "Creating account…" : "Create account"}
           </button>
+          <p className="faint text-center text-xs leading-relaxed">
+            By creating an account you agree to our{" "}
+            <Link href="/terms" className="underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
         <p className="muted mt-5 text-center text-sm">
           Already a member?{" "}

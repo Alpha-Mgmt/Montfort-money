@@ -61,6 +61,14 @@ export default function Landing() {
       </section>
 
       <footer className="faint mt-16 text-center text-xs leading-relaxed">
+        <div className="mb-2 flex justify-center gap-4">
+          <Link href="/privacy" className="hover:underline">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:underline">
+            Terms
+          </Link>
+        </div>
         Montfort Money is part of the Montfort family.
         <br />© {new Date().getFullYear()} Montfort LLC. All rights reserved.
       </footer>

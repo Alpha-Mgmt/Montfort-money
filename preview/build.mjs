@@ -56,6 +56,8 @@ const screens = [
   { name: "tasks", import: "../src/app/app/tasks/page", path: "/app/tasks", layout: true },
   { name: "settings", import: "../src/app/app/settings/page", path: "/app/settings", layout: true },
   { name: "welcome", import: "../src/app/app/welcome/page", path: "/app/welcome", layout: false },
+  { name: "privacy", import: "../src/app/privacy/page", path: "/privacy", layout: false },
+  { name: "terms", import: "../src/app/terms/page", path: "/terms", layout: false },
 ];
 
 fs.mkdirSync(path.join(WORK, "entries"), { recursive: true });
