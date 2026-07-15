@@ -296,63 +296,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Accounts */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between">
-          <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Accounts
-          </p>
-          <button
-            className="faint text-sm"
-            onClick={() => {
-              setAcctDraft({
-                name: "",
-                type: "checking",
-                payment_due_day: "",
-                statement_close_day: "",
-              });
-              setAcctOpen(true);
-            }}
-          >
-            + Add
-          </button>
-        </div>
-        {accts.length === 0 ? (
-          <p className="muted mt-3 text-sm">
-            Add the places your money lives — cash, debit, credit card. Bank
-            connections arrive in a future update; the shape is already here.
-          </p>
-        ) : (
-          <div className="mt-3 grid gap-1">
-            {accts.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => {
-                  setAcctDraft({
-                    id: a.id,
-                    name: a.name,
-                    type: a.type,
-                    payment_due_day: a.payment_due_day
-                      ? String(a.payment_due_day)
-                      : "",
-                    statement_close_day: a.statement_close_day
-                      ? String(a.statement_close_day)
-                      : "",
-                  });
-                  setAcctOpen(true);
-                }}
-                className="flex items-center justify-between py-2 text-left text-sm"
-              >
-                <span className="font-medium">{a.name}</span>
-                <span className="faint capitalize">
-                  {a.type}
-                  {a.payment_due_day && ` · due day ${a.payment_due_day}`}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Accounts — hidden until bank connections (Plaid/Belvo) arrive */}
 
       {/* Danger zone */}
       <div className="card p-6" style={{ borderColor: "var(--over-soft)" }}>
