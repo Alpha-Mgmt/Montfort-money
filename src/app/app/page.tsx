@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   buildCategoryTree,
@@ -78,6 +79,7 @@ import type {
 } from "@/lib/types";
 
 export default function MonthPage() {
+  const router = useRouter();
   const [month, setMonth] = useState(monthStartISO());
   const [name, setName] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
@@ -127,7 +129,7 @@ export default function MonthPage() {
     const [{ data: profile }, c, a, t, r, k, d, iv, gl, pl] = await Promise.all([
       supabase
         .from("profiles")
-        .select("full_name,show_debts,show_investments")
+        .select("full_name,show_debts,show_investments,onboarded")
         .single(),
       fetchCategories(),
       fetchAccounts(),
@@ -139,6 +141,11 @@ export default function MonthPage() {
       fetchGoals(),
       fetchBudgetsForMonth(m),
     ]);
+    // brand-new users (however they arrived) go through setup first
+    if (profile && profile.onboarded === false) {
+      router.replace("/app/welcome");
+      return;
+    }
     setName((profile?.full_name ?? "").split(" ")[0] ?? "");
     setShowDebts(profile?.show_debts ?? true);
     setShowInvs(profile?.show_investments ?? true);

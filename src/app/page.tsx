@@ -12,8 +12,8 @@ const features = [
     text: "“This debt dies in June 2029.” Payoff dates, statement closes, and a 12-month forecast that already knows about three-paycheck months.",
   },
   {
-    title: "Private beta",
-    text: "We're letting people in gradually. Have an invite code? You're in. Bank connections and smart insights are on the way.",
+    title: "Smart from day one",
+    text: "Montfort AI reads your month, flags where you're over, and answers questions about your own money. Bank connections are on the way.",
   },
 ];
 
@@ -43,7 +43,7 @@ export default function Landing() {
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link href="/signup" className="btn btn-primary">
-            Join with invite code
+            Get started free
           </Link>
           <Link href="/login" className="btn btn-ghost">
             Sign in

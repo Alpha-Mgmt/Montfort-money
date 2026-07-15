@@ -8,12 +8,12 @@ import { Wordmark } from "@/components/Logo";
 
 export default function SignupPage() {
   const router = useRouter();
-  const [invite, setInvite] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmSent, setConfirmSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,23 +31,12 @@ export default function SignupPage() {
     setBusy(true);
     const supabase = createClient();
 
-    const { data: ok, error: codeErr } = await supabase.rpc("check_invite", {
-      p_code: invite,
-    });
-    if (codeErr || !ok) {
-      setError("That invite code isn't valid or has been fully used.");
-      setBusy(false);
-      return;
-    }
-
-    const { error: signErr } = await supabase.auth.signUp({
+    const { data, error: signErr } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: {
-          full_name: name.trim(),
-          invite_code: invite.trim().toLowerCase(),
-        },
+        data: { full_name: name.trim() },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (signErr) {
@@ -60,8 +49,40 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/app");
+    // If email confirmation is ON, no session comes back — ask them to confirm.
+    if (!data.session) {
+      setBusy(false);
+      setConfirmSent(true);
+      return;
+    }
+
+    router.push("/app/welcome");
     router.refresh();
+  }
+
+  if (confirmSent) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col px-6">
+        <header className="py-6">
+          <Link href="/">
+            <Wordmark />
+          </Link>
+        </header>
+        <div className="card mt-8 p-7">
+          <span className="chip">Almost there</span>
+          <h1 className="mt-3 font-display text-2xl font-semibold">
+            Check your email
+          </h1>
+          <p className="muted mt-2 text-sm leading-relaxed">
+            We sent a confirmation link to <b>{email.trim()}</b>. Click it to
+            activate your account, then come back and sign in.
+          </p>
+          <Link href="/login" className="btn btn-primary mt-5">
+            Go to sign in
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -72,28 +93,17 @@ export default function SignupPage() {
         </Link>
       </header>
       <div className="card mt-8 p-7">
-        <span className="chip">Private beta</span>
-        <h1 className="mt-3 font-display text-2xl font-semibold">
+        <h1 className="font-display text-2xl font-semibold">
           Create your account
         </h1>
         <p className="muted mt-1 text-sm">
-          You need an invite code to join during the beta.
+          Free while we&apos;re getting started. Your whole month, one page.
         </p>
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <div>
-            <label className="label" htmlFor="invite">Invite code</label>
-            <input
-              id="invite"
-              required
-              className="input"
-              value={invite}
-              onChange={(e) => setInvite(e.target.value)}
-              placeholder="e.g. montfort-beta-01"
-              autoCapitalize="none"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="name">Full name</label>
+            <label className="label" htmlFor="name">
+              Full name
+            </label>
             <input
               id="name"
               required
@@ -104,7 +114,9 @@ export default function SignupPage() {
             />
           </div>
           <div>
-            <label className="label" htmlFor="email">Email</label>
+            <label className="label" htmlFor="email">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -116,7 +128,9 @@ export default function SignupPage() {
             />
           </div>
           <div>
-            <label className="label" htmlFor="password">Password</label>
+            <label className="label" htmlFor="password">
+              Password
+            </label>
             <input
               id="password"
               type="password"
@@ -127,7 +141,11 @@ export default function SignupPage() {
               autoComplete="new-password"
             />
           </div>
-          {error && <p className="text-sm" style={{ color: "var(--over)" }}>{error}</p>}
+          {error && (
+            <p className="text-sm" style={{ color: "var(--over)" }}>
+              {error}
+            </p>
+          )}
           <button className="btn btn-primary mt-1" disabled={busy}>
             {busy ? "Creating account…" : "Create account"}
           </button>
