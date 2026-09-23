@@ -26,7 +26,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="mt-auto flex items-center justify-between">
-        <span className="faint text-xs">Private beta</span>
+        <span className="faint text-xs">Early access</span>
         <ThemeToggle />
       </div>
     </aside>

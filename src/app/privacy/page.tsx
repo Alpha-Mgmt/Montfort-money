@@ -19,7 +19,7 @@ export default function PrivacyPage() {
 
       <div className="card p-8">
         <h1 className="font-display text-3xl font-semibold">Privacy Policy</h1>
-        <p className="faint mt-1 text-sm">Last updated: July 15, 2026</p>
+        <p className="faint mt-1 text-sm">Last updated: September 23, 2026</p>
 
         <div className="prose-mf mt-6 grid gap-5 text-sm leading-relaxed">
           <p className="muted">
@@ -31,8 +31,7 @@ export default function PrivacyPage() {
           <Section title="What we collect">
             <ul className="ml-4 list-disc space-y-1">
               <li>
-                <b>Account info</b> — your name, email address, and the invite
-                code you used to join.
+                <b>Account info</b> — your name and email address.
               </li>
               <li>
                 <b>The financial information you enter</b> — income, expenses,
@@ -115,9 +114,9 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="Beta note">
+          <Section title="Early access">
             <p>
-              Montfort Money is in private beta and evolving quickly. We may
+              Montfort Money is new and evolving quickly. We may
               update this policy as features change; we’ll update the date above
               when we do.
             </p>

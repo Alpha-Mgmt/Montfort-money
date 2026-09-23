@@ -76,7 +76,7 @@ export default function LoginPage() {
             Forgot password?
           </Link>
           <Link href="/signup" className="muted underline-offset-4 hover:underline">
-            Have an invite code?
+            Create an account
           </Link>
         </div>
       </div>

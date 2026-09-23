@@ -21,7 +21,7 @@ export default function TermsPage() {
         <h1 className="font-display text-3xl font-semibold">
           Terms of Service
         </h1>
-        <p className="faint mt-1 text-sm">Last updated: July 15, 2026</p>
+        <p className="faint mt-1 text-sm">Last updated: September 23, 2026</p>
 
         <div className="mt-6 grid gap-5 text-sm leading-relaxed">
           <p className="muted">
@@ -52,7 +52,6 @@ export default function TermsPage() {
 
           <Section title="Your account">
             <p>
-              During the private beta you need a valid invite code to join.
               You’re responsible for keeping your login secure and for the
               activity on your account. Tell us right away if you suspect
               unauthorized access. You must be at least 18 to use Montfort

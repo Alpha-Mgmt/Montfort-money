@@ -389,7 +389,7 @@ export default function SettingsPage() {
           About
         </p>
         <p className="muted mt-2 text-sm leading-relaxed">
-          Montfort Money · private beta. Tip: on iPhone, open this site in
+          Montfort Money · early access. Tip: on iPhone, open this site in
           Safari and use Share → “Add to Home Screen” to install it like an
           app.
         </p>
