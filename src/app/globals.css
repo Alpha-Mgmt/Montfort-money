@@ -421,3 +421,123 @@ html.theme-light .chart-tip {
   white-space: nowrap;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
 }
+
+/* ==========================================================================
+   Soft light theme (v6) — airy mint → lavender, white cards, navy ink.
+   Light is now the default; dark stays available from the theme toggle.
+   These rules come last so they win over the older light-theme rules.
+   ========================================================================== */
+html.theme-light {
+  --bg: #f4f8fc;
+  --bg-soft: #eef3f9;
+  --surface: #ffffff;
+  --surface-2: #eef2f8;
+  --border: rgba(18, 33, 58, 0.09);
+  --text: #12213a;
+  --text-soft: #4b5b73;
+  --text-faint: #7d8ca3;
+  --mint: #16a88c;
+  --mint-strong: #0f8f76;
+  --mint-soft: rgba(22, 168, 140, 0.1);
+  --warn: #c3861a;
+  --warn-soft: rgba(195, 134, 26, 0.12);
+  --over: #d4577a;
+  --over-soft: rgba(212, 87, 122, 0.1);
+  --grad-from: #1fb89a;
+  --grad-to: #8b86f0;
+  --chart-income: #2cbfa6;
+  --chart-expense: #8b9df2;
+}
+
+html.theme-light body {
+  background:
+    radial-gradient(70rem 40rem at -5% -10%, rgba(71, 214, 196, 0.16), transparent 60%),
+    radial-gradient(60rem 44rem at 105% 0%, rgba(167, 156, 245, 0.16), transparent 60%),
+    radial-gradient(60rem 40rem at 50% 115%, rgba(106, 184, 242, 0.12), transparent 62%),
+    #f4f8fc;
+  background-attachment: fixed;
+}
+/* thin gradient line across the top, like a banknote edge */
+html.theme-light body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 60;
+  background: linear-gradient(90deg, #47d6c4, #6ab8f2 55%, #a79cf5);
+  pointer-events: none;
+}
+
+html.theme-light .card {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(120, 130, 200, 0.12);
+  box-shadow:
+    0 1px 2px rgba(18, 33, 58, 0.04),
+    0 18px 48px -22px rgba(90, 110, 200, 0.28);
+}
+html.theme-light .card-soft {
+  background: #f6f8fc;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(18, 33, 58, 0.06);
+  box-shadow: none;
+}
+html.theme-light .sidebar {
+  background: rgba(255, 255, 255, 0.6);
+  border-right: 1px solid rgba(18, 33, 58, 0.06);
+}
+html.theme-light .sidebar nav a.active {
+  background: linear-gradient(90deg, rgba(71, 214, 196, 0.14), rgba(167, 156, 245, 0.14));
+  color: var(--text);
+}
+html.theme-light .tabbar {
+  background: rgba(255, 255, 255, 0.82);
+  border-top: 1px solid rgba(18, 33, 58, 0.06);
+}
+html.theme-light .input {
+  background: #ffffff;
+  border-color: rgba(18, 33, 58, 0.12);
+}
+html.theme-light .btn-primary {
+  background: #12213a;
+  color: #ffffff;
+  box-shadow: 0 8px 20px -8px rgba(18, 33, 58, 0.45);
+}
+html.theme-light .btn-ghost {
+  background: #ffffff;
+  border-color: rgba(18, 33, 58, 0.12);
+}
+html.theme-light .btn-ghost:hover {
+  background: #f6f8fc;
+}
+html.theme-light .progress-track {
+  background: #eef2f8;
+}
+html.theme-light .progress-fill {
+  background: linear-gradient(90deg, #47d6c4, #6ab8f2);
+}
+html.theme-light .progress-fill.warn {
+  background: linear-gradient(90deg, #f0c36a, #e9a04a);
+}
+html.theme-light .progress-fill.over {
+  background: linear-gradient(90deg, #ee8aa4, #d4577a);
+}
+html.theme-light .chip {
+  background: rgba(22, 168, 140, 0.1);
+  color: #0f8f76;
+}
+html.theme-light .text-grad {
+  background: linear-gradient(92deg, #16a88c, #6a8ff0 60%, #8b86f0);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Phones/tablets: single-column grids never grow wider than the screen
+   (an auto track would stretch to its widest child's content). */
+@media (max-width: 1023px) {
+  .with-sidebar .grid:not([class*=" grid-cols-"]):not([class^="grid-cols-"]):not([class*="sm:grid-cols"]):not([class*="md:grid-cols"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

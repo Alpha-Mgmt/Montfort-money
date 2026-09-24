@@ -11,7 +11,9 @@ export async function currentUser() {
     .from("profiles")
     .select("active_space,lang")
     .single();
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   return {
+    mfa: aal?.currentLevel === "aal2",
     id: user.id,
     space: (profile?.active_space as string) || "personal",
     lang: (profile?.lang as string) || "en",

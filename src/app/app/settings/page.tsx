@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { buildCategoryTree, fetchAccounts, fetchCategories } from "@/lib/data";
 import { Sheet } from "@/components/Sheet";
 import { BankConnections } from "@/components/BankConnections";
+import { MfaSetup } from "@/components/MfaSetup";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
 import { visibleTools } from "@/components/nav-items";
 import { useApp } from "@/lib/i18n";
@@ -362,6 +363,8 @@ export default function SettingsPage() {
           <LangToggle />
         </div>
       </div>
+
+      <MfaSetup />
 
       <BankConnections />
 

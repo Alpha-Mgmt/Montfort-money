@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070b0f",
+  themeColor: "#f4f8fc",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -28,8 +28,9 @@ const themeScript = `
 (function () {
   try {
     var t = localStorage.getItem("mf-theme");
-    if (t === "light") document.documentElement.classList.add("theme-light");
-  } catch (e) {}
+    // light is the default; dark only if the person chose it
+    if (t !== "dark") document.documentElement.classList.add("theme-light");
+  } catch (e) { document.documentElement.classList.add("theme-light"); }
 })();
 `;
 

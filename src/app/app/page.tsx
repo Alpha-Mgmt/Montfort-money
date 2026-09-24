@@ -1035,7 +1035,7 @@ export default function MonthPage() {
 
     return (
       <div className="card p-6">
-        <div className="mb-1 flex items-center justify-between">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-lg font-semibold">
               {kind === "income" ? tr("Income") : tr("Expenses")}

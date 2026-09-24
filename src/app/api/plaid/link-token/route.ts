@@ -9,6 +9,8 @@ export async function POST(req: Request) {
   if (!plaidConfigured()) return NextResponse.json({ error: "not_configured" }, { status: 503 });
   const me = await currentUser();
   if (!me) return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+  // bank connections require two-step verification in this session
+  if (!me.mfa) return NextResponse.json({ error: "mfa_required" }, { status: 403 });
   let lang = me.lang;
   try {
     const b = await req.json();

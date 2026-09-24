@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/i18n";
+import { mfaStatus } from "@/lib/mfa";
+import { MfaSetup } from "@/components/MfaSetup";
 
 type Item = {
   id: string;
@@ -40,6 +42,7 @@ export function BankConnections() {
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState<"" | "link" | "sync">("");
   const [msg, setMsg] = useState("");
+  const [needMfa, setNeedMfa] = useState(false);
 
   async function load() {
     try {
@@ -57,8 +60,13 @@ export function BankConnections() {
   }, []);
 
   async function connect() {
-    setBusy("link");
     setMsg("");
+    const m = await mfaStatus().catch(() => null);
+    if (!m || !m.enrolled || !m.verifiedNow) {
+      setNeedMfa(true);
+      return;
+    }
+    setBusy("link");
     try {
       const [{ link_token, error }] = await Promise.all([
         fetch("/api/plaid/link-token", {
@@ -161,6 +169,19 @@ export function BankConnections() {
             {t("New connections go to your {space} space.", { space: space === "business" ? t("Business") : t("Personal") })}
           </p>
         </>
+      )}
+      {needMfa && (
+        <div className="mt-4">
+          <p className="mb-3 text-sm" style={{ color: "var(--warn)" }}>
+            {t("To protect your bank data, turn on two-step verification first.")}
+          </p>
+          <MfaSetup
+            onDone={() => {
+              setNeedMfa(false);
+              setMsg(t("Done. Now tap Connect a bank."));
+            }}
+          />
+        </div>
       )}
       {msg && <p className="muted mt-3 text-sm">{msg}</p>}
     </div>

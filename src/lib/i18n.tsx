@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { setFormatLocale } from "@/lib/format";
 import { es } from "@/lib/dict-es";
+import { MfaGate } from "@/components/MfaGate";
 
 export type Lang = "en" | "es";
 export type Space = "personal" | "business" | "shared";
@@ -210,7 +211,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // remount them when it changes so every tr() call picks up the new one.
   return (
     <AppCtx.Provider value={value}>
-      {langReady ? <Fragment key={lang}>{children}</Fragment> : null}
+      {langReady ? (
+        <Fragment key={lang}>
+          <MfaGate>{children}</MfaGate>
+        </Fragment>
+      ) : null}
     </AppCtx.Provider>
   );
 }
