@@ -6,6 +6,7 @@ import { Sheet } from "@/components/Sheet";
 import { money, monthStartISO } from "@/lib/format";
 import { checksPerMonth, frequencyLabels } from "@/lib/recurring";
 import type { Frequency, Goal } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 export type GoalDraft = {
   id?: string;
@@ -76,8 +77,8 @@ export function GoalSheet({
     const saved = parseFloat(draft.saved || "0") || 0;
     if (!target || !draft.target_date) return null;
     const m = goalMath(target, saved, draft.target_date, paycheckFreq);
-    if (m.perMonth === null) return "Target reached 🎯";
-    return `${money(m.perMonth)}/month — that's ~${money(m.perCheck!)} from each paycheck (${frequencyLabels[paycheckFreq].toLowerCase()}) for ${m.months} months.`;
+    if (m.perMonth === null) return tr("Target reached 🎯");
+    return tr("{v0}/month — that's ~{v1} from each paycheck ({v2}) for {v3} months.", { v0: money(m.perMonth), v1: money(m.perCheck!), v2: tr(frequencyLabels[paycheckFreq]).toLowerCase(), v3: m.months });
   }, [draft, paycheckFreq]);
 
   if (!draft) return null;
@@ -86,7 +87,7 @@ export function GoalSheet({
     if (!draft) return;
     const target = parseFloat(draft.target_amount);
     if (!draft.name.trim() || !target || target <= 0) {
-      setError("Name and target amount are required.");
+      setError(tr("Name and target amount are required."));
       return;
     }
     setBusy(true);
@@ -126,14 +127,14 @@ export function GoalSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={draft.id ? "Edit goal" : "New goal"}
+      title={draft.id ? tr("Edit goal") : tr("New goal")}
     >
       <div className="grid gap-4">
         <div>
-          <label className="label">What are you saving for?</label>
+          <label className="label">{tr("What are you saving for?")}</label>
           <input
             className="input"
-            placeholder="e.g. House down payment, Rolex, Japan trip"
+            placeholder={tr("e.g. House down payment, Rolex, Japan trip")}
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             autoFocus
@@ -141,7 +142,7 @@ export function GoalSheet({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Target amount</label>
+            <label className="label">{tr("Target amount")}</label>
             <input
               className="input"
               type="number"
@@ -156,7 +157,7 @@ export function GoalSheet({
             />
           </div>
           <div>
-            <label className="label">By when — optional</label>
+            <label className="label">{tr("By when — optional")}</label>
             <input
               className="input"
               type="date"
@@ -168,7 +169,7 @@ export function GoalSheet({
           </div>
         </div>
         <div>
-          <label className="label">Already saved — optional</label>
+          <label className="label">{tr("Already saved — optional")}</label>
           <input
             className="input"
             type="number"
@@ -189,11 +190,11 @@ export function GoalSheet({
           </p>
         )}
         <button className="btn btn-primary" onClick={save} disabled={busy}>
-          {busy ? "Saving…" : draft.id ? "Save changes" : "Create goal"}
+          {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Create goal")}
         </button>
         {draft.id && (
           <button className="btn btn-danger" onClick={archive} disabled={busy}>
-            Archive goal
+            {tr("Archive goal")}
           </button>
         )}
       </div>

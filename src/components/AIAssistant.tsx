@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { tr, useApp } from "@/lib/i18n";
 
 type Insight = { tone: "warn" | "good" | "tip"; text: string };
 type Analysis = { headline: string; insights: Insight[]; generated?: boolean };
@@ -47,6 +48,7 @@ function Spinner() {
 /** Floating Montfort AI assistant: fixed to the viewport, follows scroll,
  *  opens into a chat panel, minimizes back to a pill. */
 export function AIAssistant({ month }: { month: string }) {
+  const { lang, space } = useApp();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -73,19 +75,19 @@ export function AIAssistant({ month }: { month: string }) {
   async function analyzeMonth() {
     if (busy) return;
     setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: "Analyze this month" }]);
+    setMessages((m) => [...m, { role: "user", content: tr("Analyze this month") }]);
     try {
       const r = await fetch("/api/insights", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ month }),
+        body: JSON.stringify({ month, lang, space }),
       });
       const data = (await r.json()) as Analysis;
       setMessages((m) => [...m, { role: "assistant", analysis: data }]);
     } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "Couldn't analyze right now. Try again." },
+        { role: "assistant", content: tr("Couldn't analyze right now. Try again.") },
       ]);
     } finally {
       setBusy(false);
@@ -99,7 +101,7 @@ export function AIAssistant({ month }: { month: string }) {
       {
         role: "assistant",
         content:
-          "Love that you want to help shape this. What would make Montfort Money better for you? Type it below and I'll pass it straight to the team.",
+          tr("Love that you want to help shape this. What would make Montfort Money better for you? Type it below and I'll pass it straight to the team."),
       },
     ]);
     inputRef.current?.focus();
@@ -126,13 +128,13 @@ export function AIAssistant({ month }: { month: string }) {
         {
           role: "assistant",
           content:
-            "Got it — thank you. That's exactly the kind of input that makes this better. Anything else? Ask me about your money or drop another idea.",
+            tr("Got it — thank you. That's exactly the kind of input that makes this better. Anything else? Ask me about your money or drop another idea."),
         },
       ]);
     } catch {
       setMessages([
         ...next,
-        { role: "assistant", content: "Couldn't send that just now — try again." },
+        { role: "assistant", content: tr("Couldn't send that just now — try again.") },
       ]);
     } finally {
       setFeedbackMode(false);
@@ -154,6 +156,8 @@ export function AIAssistant({ month }: { month: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           month,
+          lang,
+          space,
           messages: next
             .filter((m) => m.content)
             .map((m) => ({ role: m.role, content: m.content })),
@@ -162,12 +166,12 @@ export function AIAssistant({ month }: { month: string }) {
       const data = await r.json();
       setMessages([
         ...next,
-        { role: "assistant", content: data?.reply ?? "Sorry, I couldn't answer that." },
+        { role: "assistant", content: data?.reply ?? tr("Sorry, I couldn't answer that.") },
       ]);
     } catch {
       setMessages([
         ...next,
-        { role: "assistant", content: "Something went wrong. Please try again." },
+        { role: "assistant", content: tr("Something went wrong. Please try again.") },
       ]);
     } finally {
       setBusy(false);
@@ -179,7 +183,7 @@ export function AIAssistant({ month }: { month: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        aria-label="Open Montfort AI"
+        aria-label={tr("Open Montfort AI")}
         className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg lg:bottom-6 lg:right-6"
         style={{
           background: "linear-gradient(120deg, #2bd396, #25c2b0)",
@@ -188,7 +192,7 @@ export function AIAssistant({ month }: { month: string }) {
         }}
       >
         <Sparkle />
-        Montfort AI
+        {tr("Montfort AI")}
       </button>
     );
   }
@@ -208,7 +212,7 @@ export function AIAssistant({ month }: { month: string }) {
           >
             <Sparkle />
           </span>
-          <span className="font-display font-semibold">Montfort AI</span>
+          <span className="font-display font-semibold">{tr("Montfort AI")}</span>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
@@ -216,11 +220,11 @@ export function AIAssistant({ month }: { month: string }) {
               className="faint px-2 text-xs hover:underline"
               onClick={() => setMessages([])}
             >
-              Clear
+              {tr("Clear")}
             </button>
           )}
           <button
-            aria-label="Minimize"
+            aria-label={tr("Minimize")}
             className="faint grid h-7 w-7 place-items-center rounded-full text-lg"
             onClick={() => setOpen(false)}
             style={{ background: "var(--surface-2)" }}
@@ -235,7 +239,7 @@ export function AIAssistant({ month }: { month: string }) {
         {messages.length === 0 ? (
           <div className="grid gap-3">
             <p className="muted text-sm">
-              Ask me anything about your money this month.
+              {tr("Ask me anything about your money this month.")}
             </p>
             <div className="grid gap-1.5">
               <button
@@ -245,12 +249,12 @@ export function AIAssistant({ month }: { month: string }) {
                 style={{ color: "var(--mint)" }}
               >
                 <Sparkle size={14} />
-                Analyze this month
+                {tr("Analyze this month")}
               </button>
               {EXAMPLES.map((ex) => (
                 <button
-                  key={ex}
-                  onClick={() => send(ex)}
+                  key={tr(ex)}
+                  onClick={() => send(tr(ex))}
                   disabled={busy}
                   className="card-soft px-3 py-2 text-left text-sm hover:opacity-80"
                 >
@@ -263,15 +267,14 @@ export function AIAssistant({ month }: { month: string }) {
               style={{ background: "var(--mint-soft)" }}
             >
               <p className="muted">
-                We&apos;re building Montfort Money with you — got an idea or
-                something that bugs you?
+                {tr("We're building Montfort Money with you — got an idea or something that bugs you?")}
               </p>
               <button
                 onClick={startFeedback}
                 className="mt-1.5 font-semibold hover:underline"
                 style={{ color: "var(--mint)" }}
               >
-                Share a suggestion →
+                {tr("Share a suggestion →")}
               </button>
             </div>
           </div>
@@ -316,7 +319,7 @@ export function AIAssistant({ month }: { month: string }) {
             {busy && (
               <div className="flex items-center gap-2 text-sm">
                 <Spinner />
-                <span className="muted">Thinking…</span>
+                <span className="muted">{tr("Thinking…")}</span>
               </div>
             )}
           </div>
@@ -332,7 +335,7 @@ export function AIAssistant({ month }: { month: string }) {
           ref={inputRef}
           className="input !py-2 text-sm"
           placeholder={
-            feedbackMode ? "Type your suggestion…" : "Ask about your money…"
+            feedbackMode ? tr("Type your suggestion…") : tr("Ask about your money…")
           }
           value={input}
           disabled={busy}
@@ -344,7 +347,7 @@ export function AIAssistant({ month }: { month: string }) {
           onClick={() => send(input)}
           disabled={busy || !input.trim()}
         >
-          {feedbackMode ? "Send" : "Ask"}
+          {feedbackMode ? tr("Send") : tr("Ask")}
         </button>
       </div>
     </div>

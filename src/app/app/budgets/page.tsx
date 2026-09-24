@@ -13,6 +13,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { Sheet } from "@/components/Sheet";
 import { categoryPath } from "@/components/CategorySelect";
 import type { Budget, Category } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 export default function BudgetsPage() {
   const [month, setMonth] = useState(monthStartISO());
@@ -139,7 +140,7 @@ export default function BudgetsPage() {
         <button
           className="btn btn-ghost !px-3"
           onClick={() => setMonth(addMonths(month, -1))}
-          aria-label="Previous month"
+          aria-label={tr("Previous month")}
         >
           ←
         </button>
@@ -149,7 +150,7 @@ export default function BudgetsPage() {
         <button
           className="btn btn-ghost !px-3"
           onClick={() => setMonth(addMonths(month, 1))}
-          aria-label="Next month"
+          aria-label={tr("Next month")}
         >
           →
         </button>
@@ -158,7 +159,7 @@ export default function BudgetsPage() {
       {budgets.length > 0 && (
         <div className="card p-5">
           <div className="mb-1.5 flex items-center justify-between text-sm">
-            <span className="font-medium">Monthly plan</span>
+            <span className="font-medium">{tr("Monthly plan")}</span>
             <span className="muted">
               {money(totalSpent)} / {money(totalLimit)}
             </span>
@@ -168,23 +169,21 @@ export default function BudgetsPage() {
       )}
 
       {loading ? (
-        <p className="faint mt-6 text-center text-sm">Loading…</p>
+        <p className="faint mt-6 text-center text-sm">{tr("Loading…")}</p>
       ) : (
         <>
           {budgets.length === 0 && (
             <div className="card p-8 text-center">
               <p className="text-3xl">🎯</p>
               <p className="muted mt-2 text-sm">
-                No budgets for {monthLabel(month)} yet. Pick a category below
-                to set your first limit
-                {addMonths(month, -1) && " — or copy last month's plan."}
+                {tr("No budgets for {m} yet. Pick a category below to set your first limit — or copy last month's plan.", { m: monthLabel(month) })}
               </p>
               <button
                 className="btn btn-ghost mt-4"
                 onClick={copyLastMonth}
                 disabled={busy}
               >
-                Copy last month
+                {tr("Copy last month")}
               </button>
             </div>
           )}
@@ -208,7 +207,7 @@ export default function BudgetsPage() {
                   >
                     <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
                       <span className="truncate font-medium">
-                        {path?.icon} {path?.label ?? "Category"}
+                        {path?.icon} {path?.label ?? tr("Category")}
                       </span>
                       <span className="muted shrink-0">
                         {money(s)} / {money(b.limit_amount)}
@@ -233,7 +232,7 @@ export default function BudgetsPage() {
           {unbudgeted.length > 0 && (
             <div>
               <p className="faint mb-2 mt-2 text-xs font-semibold uppercase tracking-wide">
-                Not budgeted yet
+                {tr("Not budgeted yet")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {unbudgeted.map((c) => (
@@ -257,15 +256,16 @@ export default function BudgetsPage() {
         onClose={() => setOpen(false)}
         title={
           editing?.budget_id
-            ? `Edit budget — ${editingCat?.name ?? ""}`
-            : `New budget — ${editingCat?.name ?? ""}`
+            ? tr("Edit budget — {v0}", { v0: editingCat?.name ?? "" })
+            : tr("New budget — {v0}", { v0: editingCat?.name ?? "" })
         }
       >
         {editing && (
           <div className="grid gap-4">
             <div>
               <label className="label">
-                Monthly limit for {editingCat?.icon} {editingCat?.name}
+                {tr("Monthly limit for")}{" "}
+{editingCat?.icon} {editingCat?.name}
               </label>
               <input
                 className="input"
@@ -281,11 +281,11 @@ export default function BudgetsPage() {
               />
             </div>
             <button className="btn btn-primary" onClick={save} disabled={busy}>
-              {busy ? "Saving…" : "Save budget"}
+              {busy ? tr("Saving…") : tr("Save budget")}
             </button>
             {editing.budget_id && (
               <button className="btn btn-danger" onClick={remove} disabled={busy}>
-                Remove budget
+                {tr("Remove budget")}
               </button>
             )}
           </div>

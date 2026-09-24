@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navItems, isActive } from "@/components/nav-items";
+import { useT } from "@/lib/i18n";
 
 export function TabBar() {
   const pathname = usePathname();
+  const t = useT();
   return (
     <nav className="tabbar">
       <div
@@ -14,14 +16,14 @@ export function TabBar() {
           gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))`,
         }}
       >
-        {navItems.map((t) => (
+        {navItems.map((n) => (
           <Link
-            key={t.href}
-            href={t.href}
-            className={isActive(t.href, pathname) ? "active" : ""}
+            key={n.href}
+            href={n.href}
+            className={isActive(n.href, pathname) ? "active" : ""}
           >
-            {t.icon}
-            {t.label}
+            {n.icon}
+            {t(n.label)}
           </Link>
         ))}
       </div>

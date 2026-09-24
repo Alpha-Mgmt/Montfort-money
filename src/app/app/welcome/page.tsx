@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Wordmark } from "@/components/Logo";
 import { monthStartISO, todayISO } from "@/lib/format";
 import type { Category, Frequency } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type Line = { name: string; amount: string; freq: Frequency };
 type CatBlock = { name: string; lines: Line[] };
@@ -65,8 +66,8 @@ function CategoryLinesBuilder({
   blocks: CatBlock[];
   setBlocks: (b: CatBlock[]) => void;
 }) {
-  const catPlaceholder = kind === "income" ? "e.g. IBM, My business, Rentals" : "e.g. Housing, Cars, Subscriptions";
-  const linePlaceholder = kind === "income" ? "e.g. Salary, Bonus, PTO" : "e.g. Rent, Netflix";
+  const catPlaceholder = kind === "income" ? tr("e.g. IBM, My business, Rentals") : tr("e.g. Housing, Cars, Subscriptions");
+  const linePlaceholder = kind === "income" ? tr("e.g. Salary, Bonus, PTO") : tr("e.g. Rent, Netflix");
 
   const setBlock = (i: number, patch: Partial<CatBlock>) =>
     setBlocks(blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)));
@@ -88,7 +89,7 @@ function CategoryLinesBuilder({
             />
             {blocks.length > 1 && (
               <button
-                aria-label="Remove category"
+                aria-label={tr("Remove category")}
                 className="faint px-1"
                 onClick={() => setBlocks(blocks.filter((_, j) => j !== i))}
               >
@@ -97,7 +98,7 @@ function CategoryLinesBuilder({
             )}
           </div>
           {b.name && (
-            <p className="faint text-xs">Add what falls under {b.name}:</p>
+            <p className="faint text-xs">{tr("Add what falls under")}{" "}{b.name}:</p>
           )}
           {b.lines.map((l, k) => (
             <div key={k} className="flex flex-wrap items-center gap-1.5 pl-2">
@@ -115,13 +116,13 @@ function CategoryLinesBuilder({
               >
                 {freqOptions.map((o) => (
                   <option key={o.v} value={o.v}>
-                    {o.label}
+                    {tr(o.label)}
                   </option>
                 ))}
               </select>
               {b.lines.length > 1 && (
                 <button
-                  aria-label="Remove line"
+                  aria-label={tr("Remove line")}
                   className="faint px-1"
                   onClick={() =>
                     setBlock(i, { lines: b.lines.filter((_, m) => m !== k) })
@@ -136,7 +137,7 @@ function CategoryLinesBuilder({
             className="faint w-fit pl-2 text-xs underline underline-offset-4"
             onClick={() => setBlock(i, { lines: [...b.lines, emptyLine()] })}
           >
-            + add line
+            {tr("+ add line")}
           </button>
         </div>
       ))}
@@ -144,7 +145,8 @@ function CategoryLinesBuilder({
         className="btn btn-ghost !py-1.5 !text-sm"
         onClick={() => setBlocks([...blocks, emptyBlock()])}
       >
-        + add {kind === "income" ? "income source" : "category"}
+        {tr("+ add")}{" "}
+{kind === "income" ? "income source" : "category"}
       </button>
     </div>
   );
@@ -332,7 +334,7 @@ export default function WelcomePage() {
   if (!ready) {
     return (
       <div className="fixed inset-0 z-50 grid place-items-center" style={{ background: "var(--bg)" }}>
-        <p className="faint text-sm">Getting things ready…</p>
+        <p className="faint text-sm">{tr("Getting things ready…")}</p>
       </div>
     );
   }
@@ -344,7 +346,7 @@ export default function WelcomePage() {
           <Wordmark />
           {step > 0 && (
             <button className="faint text-sm hover:underline" onClick={finish}>
-              Skip for now
+              {tr("Skip for now")}
             </button>
           )}
         </div>
@@ -364,25 +366,22 @@ export default function WelcomePage() {
         <div className="card mt-6 p-6">
           {step === 0 && (
             <div className="grid gap-4">
-              <span className="chip w-fit">Welcome</span>
+              <span className="chip w-fit">{tr("Welcome")}</span>
               <h1 className="font-display text-2xl font-semibold">
-                Hey {name || "there"}, let&apos;s set up your money.
+                {tr("Hey")}{" "}
+{name || "there"}, let&apos;s set up your money.
               </h1>
               <p className="muted text-sm leading-relaxed">
-                A couple of minutes to get your income, bills, debts, investments
-                and a goal in — then your whole month plans itself. Skip anything
-                and add it later.
+                {tr("A couple of minutes to get your income, bills, debts, investments and a goal in — then your whole month plans itself. Skip anything and add it later.")}
               </p>
             </div>
           )}
 
           {step === 1 && (
             <div className="grid gap-4">
-              <h2 className="font-display text-xl font-semibold">Your income</h2>
+              <h2 className="font-display text-xl font-semibold">{tr("Your income")}</h2>
               <p className="muted text-sm">
-                Add where your money comes from — an employer, your business,
-                rentals — then the pieces inside it (Salary, Bonus, PTO…). Each
-                one is tracked on its own.
+                {tr("Add where your money comes from — an employer, your business, rentals — then the pieces inside it (Salary, Bonus, PTO…). Each one is tracked on its own.")}
               </p>
               <CategoryLinesBuilder kind="income" blocks={income} setBlocks={setIncome} />
             </div>
@@ -390,10 +389,9 @@ export default function WelcomePage() {
 
           {step === 2 && (
             <div className="grid gap-4">
-              <h2 className="font-display text-xl font-semibold">Your expenses</h2>
+              <h2 className="font-display text-xl font-semibold">{tr("Your expenses")}</h2>
               <p className="muted text-sm">
-                Group them how you think — a category (Housing, Cars) and the
-                lines inside it (Rent, insurance, tires). Add a few or skip.
+                {tr("Group them how you think — a category (Housing, Cars) and the lines inside it (Rent, insurance, tires). Add a few or skip.")}
               </p>
               <CategoryLinesBuilder kind="expense" blocks={expenses} setBlocks={setExpenses} />
             </div>
@@ -401,10 +399,9 @@ export default function WelcomePage() {
 
           {step === 3 && (
             <div className="grid gap-4">
-              <h2 className="font-display text-xl font-semibold">Debts</h2>
+              <h2 className="font-display text-xl font-semibold">{tr("Debts")}</h2>
               <p className="muted text-sm">
-                Cards and loans. I&apos;ll tell you exactly when each one dies.
-                Skip if none.
+                {tr("Cards and loans. I'll tell you exactly when each one dies. Skip if none.")}
               </p>
               <div className="grid gap-3">
                 {debts.map((d, i) => (
@@ -412,7 +409,7 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-2">
                       <input
                         className="input !flex-1 !py-1.5 text-sm"
-                        placeholder="e.g. Amex Gold"
+                        placeholder={tr("e.g. Amex Gold")}
                         value={d.name}
                         onChange={(e) =>
                           setDebts(debts.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
@@ -420,7 +417,7 @@ export default function WelcomePage() {
                       />
                       {debts.length > 1 && (
                         <button
-                          aria-label="Remove"
+                          aria-label={tr("Remove")}
                           className="faint px-1"
                           onClick={() => setDebts(debts.filter((_, j) => j !== i))}
                         >
@@ -429,30 +426,30 @@ export default function WelcomePage() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="faint w-full text-xs">Balance · APR% · monthly payment · due day</span>
+                      <span className="faint w-full text-xs">{tr("Balance · APR% · monthly payment · due day")}</span>
                       <MoneyInput
                         value={d.balance}
                         onChange={(v) => setDebts(debts.map((x, j) => (j === i ? { ...x, balance: v } : x)))}
-                        placeholder="balance"
+                        placeholder={tr("balance")}
                       />
                       <input
                         className="input !w-16 !py-1.5 !px-2 text-sm"
                         type="number"
-                        placeholder="APR"
+                        placeholder={tr("APR")}
                         value={d.apr}
                         onChange={(e) => setDebts(debts.map((x, j) => (j === i ? { ...x, apr: e.target.value } : x)))}
                       />
                       <MoneyInput
                         value={d.payment}
                         onChange={(v) => setDebts(debts.map((x, j) => (j === i ? { ...x, payment: v } : x)))}
-                        placeholder="pay"
+                        placeholder={tr("pay")}
                       />
                       <input
                         className="input !w-16 !py-1.5 !px-2 text-sm"
                         type="number"
                         min="1"
                         max="31"
-                        placeholder="day"
+                        placeholder={tr("day")}
                         value={d.dueDay}
                         onChange={(e) => setDebts(debts.map((x, j) => (j === i ? { ...x, dueDay: e.target.value } : x)))}
                       />
@@ -464,17 +461,16 @@ export default function WelcomePage() {
                 className="btn btn-ghost !py-1.5 !text-sm"
                 onClick={() => setDebts([...debts, { name: "", balance: "", apr: "", payment: "", dueDay: "" }])}
               >
-                + add debt
+                {tr("+ add debt")}
               </button>
             </div>
           )}
 
           {step === 4 && (
             <div className="grid gap-4">
-              <h2 className="font-display text-xl font-semibold">Investments</h2>
+              <h2 className="font-display text-xl font-semibold">{tr("Investments")}</h2>
               <p className="muted text-sm">
-                Brokerage, retirement, crypto, a house fund. Add a monthly
-                contribution if you put money in regularly. Skip if none.
+                {tr("Brokerage, retirement, crypto, a house fund. Add a monthly contribution if you put money in regularly. Skip if none.")}
               </p>
               <div className="grid gap-3">
                 {invs.map((v, i) => (
@@ -482,13 +478,13 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-2">
                       <input
                         className="input !flex-1 !py-1.5 text-sm"
-                        placeholder="e.g. Charles Schwab"
+                        placeholder={tr("e.g. Charles Schwab")}
                         value={v.name}
                         onChange={(e) => setInvs(invs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                       />
                       {invs.length > 1 && (
                         <button
-                          aria-label="Remove"
+                          aria-label={tr("Remove")}
                           className="faint px-1"
                           onClick={() => setInvs(invs.filter((_, j) => j !== i))}
                         >
@@ -497,23 +493,23 @@ export default function WelcomePage() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="faint w-full text-xs">Balance · expected return% · monthly deposit (optional)</span>
+                      <span className="faint w-full text-xs">{tr("Balance · expected return% · monthly deposit (optional)")}</span>
                       <MoneyInput
                         value={v.balance}
                         onChange={(val) => setInvs(invs.map((x, j) => (j === i ? { ...x, balance: val } : x)))}
-                        placeholder="balance"
+                        placeholder={tr("balance")}
                       />
                       <input
                         className="input !w-16 !py-1.5 !px-2 text-sm"
                         type="number"
-                        placeholder="%/yr"
+                        placeholder={tr("%/yr")}
                         value={v.apr}
                         onChange={(e) => setInvs(invs.map((x, j) => (j === i ? { ...x, apr: e.target.value } : x)))}
                       />
                       <MoneyInput
                         value={v.monthly}
                         onChange={(val) => setInvs(invs.map((x, j) => (j === i ? { ...x, monthly: val } : x)))}
-                        placeholder="/mo"
+                        placeholder={tr("/mo")}
                       />
                     </div>
                   </div>
@@ -523,30 +519,29 @@ export default function WelcomePage() {
                 className="btn btn-ghost !py-1.5 !text-sm"
                 onClick={() => setInvs([...invs, { name: "", balance: "", apr: "", monthly: "" }])}
               >
-                + add investment
+                {tr("+ add investment")}
               </button>
             </div>
           )}
 
           {step === 5 && (
             <div className="grid gap-4">
-              <h2 className="font-display text-xl font-semibold">Set a goal (optional)</h2>
+              <h2 className="font-display text-xl font-semibold">{tr("Set a goal (optional)")}</h2>
               <p className="muted text-sm">
-                A house, a car, a trip. I&apos;ll show you exactly what each
-                paycheck needs to give.
+                {tr("A house, a car, a trip. I'll show you exactly what each paycheck needs to give.")}
               </p>
               <div>
-                <label className="label">What are you saving for?</label>
+                <label className="label">{tr("What are you saving for?")}</label>
                 <input
                   className="input"
-                  placeholder="e.g. House down payment"
+                  placeholder={tr("e.g. House down payment")}
                   value={goal.name}
                   onChange={(e) => setGoal({ ...goal, name: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Target amount</label>
+                  <label className="label">{tr("Target amount")}</label>
                   <div className="relative">
                     <span className="faint pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
                       $
@@ -562,7 +557,7 @@ export default function WelcomePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="label">By when?</label>
+                  <label className="label">{tr("By when?")}</label>
                   <input
                     className="input"
                     type="date"
@@ -577,11 +572,11 @@ export default function WelcomePage() {
           <div className="mt-6 flex items-center justify-between gap-3">
             {step === 0 ? (
               <button className="faint text-sm hover:underline" onClick={finish}>
-                Skip setup
+                {tr("Skip setup")}
               </button>
             ) : (
               <button className="faint text-sm hover:underline" onClick={skipStep} disabled={busy}>
-                Skip this
+                {tr("Skip this")}
               </button>
             )}
             <button
@@ -589,7 +584,7 @@ export default function WelcomePage() {
               onClick={step === 0 ? () => setStep(1) : next}
               disabled={busy}
             >
-              {busy ? "Saving…" : step === 0 ? "Get started" : step === 5 ? "Finish" : "Continue"}
+              {busy ? tr("Saving…") : step === 0 ? tr("Get started") : step === 5 ? tr("Finish") : tr("Continue")}
             </button>
           </div>
         </div>

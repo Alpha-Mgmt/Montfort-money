@@ -14,6 +14,7 @@ import type {
   Recurrence,
   Task,
 } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type Draft = {
   id?: string;
@@ -91,10 +92,10 @@ function TasksInner() {
       if (t.amount != null) {
         const cat = t.category_id ? catById.get(t.category_id) : null;
         setFlash(
-          `Done — ${money(t.amount)} logged${cat ? ` to ${cat.name}` : ""}. Budget updated.`
+          cat ? tr("Done — {amt} logged to {cat}. Budget updated.", { amt: money(t.amount), cat: cat.name }) : tr("Done — {amt} logged. Budget updated.", { amt: money(t.amount) })
         );
       } else {
-        setFlash("Done ✓");
+        setFlash(tr("Done ✓"));
       }
       setTimeout(() => setFlash(null), 3500);
     }
@@ -168,13 +169,13 @@ function TasksInner() {
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Money tasks</h1>
+          <h1 className="font-display text-2xl font-semibold">{tr("Money tasks")}</h1>
           <p className="muted text-sm">
-            Check one off and your budget updates itself.
+            {tr("Check one off and your budget updates itself.")}
           </p>
         </div>
         <button className="btn btn-primary" onClick={startAdd}>
-          + New
+          {tr("+ New")}
         </button>
       </div>
 
@@ -185,12 +186,11 @@ function TasksInner() {
       )}
 
       {loading ? (
-        <p className="faint mt-6 text-center text-sm">Loading…</p>
+        <p className="faint mt-6 text-center text-sm">{tr("Loading…")}</p>
       ) : pending.length === 0 && completed.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="muted mt-2 text-sm">
-            No tasks yet. Try “Pay credit card — $500, monthly” and watch it
-            book itself when you complete it.
+            {tr("No tasks yet. Try “Pay credit card — $500, monthly” and watch it book itself when you complete it.")}
           </p>
         </div>
       ) : (
@@ -220,10 +220,10 @@ function TasksInner() {
                     >
                       {cat && `${cat.name} · `}
                       {t.due_date
-                        ? `${overdue ? "overdue — " : ""}${shortDate(t.due_date)}`
+                        ? `${overdue ? tr("overdue — ") : ""}${shortDate(t.due_date)}`
                         : "no date"}
                       {t.recurrence !== "none" &&
-                        ` · ${recurrenceLabels[t.recurrence].toLowerCase()}`}
+                        ` · ${tr(recurrenceLabels[t.recurrence]).toLowerCase()}`}
                     </p>
                   </button>
                   {t.amount != null && (
@@ -237,7 +237,7 @@ function TasksInner() {
           {completed.length > 0 && (
             <div>
               <p className="faint mb-2 mt-3 text-xs font-semibold uppercase tracking-wide">
-                Recently completed
+                {tr("Recently completed")}
               </p>
               <div className="grid gap-2">
                 {completed.map((t) => (
@@ -263,7 +263,7 @@ function TasksInner() {
                       className="faint text-xs underline underline-offset-4"
                       onClick={() => uncomplete(t)}
                     >
-                      Undo
+                      {tr("Undo")}
                     </button>
                   </div>
                 ))}
@@ -276,23 +276,22 @@ function TasksInner() {
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title={draft?.id ? "Edit task" : "New money task"}
+        title={draft?.id ? tr("Edit task") : tr("New money task")}
       >
         {draft && (
           <div className="grid gap-4">
             <div>
-              <label className="label">What needs to happen?</label>
+              <label className="label">{tr("What needs to happen?")}</label>
               <input
                 className="input"
-                placeholder="e.g. Pay credit card"
+                placeholder={tr("e.g. Pay credit card")}
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               />
             </div>
             <div>
               <label className="label">
-                Amount — optional. With an amount, completing the task records
-                it and updates your budget.
+                {tr("Amount — optional. With an amount, completing the task records it and updates your budget.")}
               </label>
               <input
                 className="input"
@@ -319,13 +318,13 @@ function TasksInner() {
                       })
                     }
                   >
-                    {k === "expense" ? "Expense" : "Income"}
+                    {k === "expense" ? tr("Expense") : tr("Income")}
                   </button>
                 ))}
               </div>
             )}
             <div>
-              <label className="label">Category</label>
+              <label className="label">{tr("Category")}</label>
               <CategorySelect
                 cats={cats}
                 kind={draft.kind}
@@ -336,7 +335,7 @@ function TasksInner() {
             </div>
             {accts.length > 0 && draft.amount && (
               <div>
-                <label className="label">Account</label>
+                <label className="label">{tr("Account")}</label>
                 <select
                   className="input"
                   value={draft.account_id}
@@ -354,7 +353,7 @@ function TasksInner() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Due date</label>
+                <label className="label">{tr("Due date")}</label>
                 <input
                   className="input"
                   type="date"
@@ -365,7 +364,7 @@ function TasksInner() {
                 />
               </div>
               <div>
-                <label className="label">Repeats</label>
+                <label className="label">{tr("Repeats")}</label>
                 <select
                   className="input"
                   value={draft.recurrence}
@@ -387,11 +386,11 @@ function TasksInner() {
               </div>
             </div>
             <button className="btn btn-primary" onClick={save} disabled={busy}>
-              {busy ? "Saving…" : draft.id ? "Save changes" : "Create task"}
+              {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Create task")}
             </button>
             {draft.id && (
               <button className="btn btn-danger" onClick={remove} disabled={busy}>
-                Delete task
+                {tr("Delete task")}
               </button>
             )}
           </div>

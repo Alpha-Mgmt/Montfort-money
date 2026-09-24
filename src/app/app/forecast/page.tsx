@@ -37,6 +37,7 @@ import type {
   Kind,
   RecurringItem,
 } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type View = "all" | "income" | "expenses" | "debts" | "investments";
 
@@ -196,9 +197,9 @@ export default function ForecastPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{it.title}</p>
           <p className="faint truncate text-xs">
-            {frequencyLabels[it.frequency]}
+            {tr(frequencyLabels[it.frequency])}
             {path && ` · ${path.label}`}
-            {it.end_date && ` · until ${it.end_date}`}
+            {it.end_date && tr(" · until {v0}", { v0: it.end_date })}
           </p>
         </div>
         <span
@@ -216,9 +217,9 @@ export default function ForecastPage() {
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Forecast</h1>
+          <h1 className="font-display text-2xl font-semibold">{tr("Forecast")}</h1>
           <p className="muted text-sm">
-            Your recurring money, projected over the next 12 months.
+            {tr("Your recurring money, projected over the next 12 months.")}
           </p>
         </div>
       </div>
@@ -231,7 +232,7 @@ export default function ForecastPage() {
             className={`btn !px-4 !py-1.5 !text-sm ${view === v ? "btn-primary" : "btn-ghost"}`}
             onClick={() => setView(v)}
           >
-            {viewLabels[v]}
+            {tr(viewLabels[v])}
           </button>
         ))}
       </div>
@@ -251,7 +252,8 @@ export default function ForecastPage() {
         <div className="grid gap-4">
           <div className="card p-5">
             <p className="faint text-xs font-semibold uppercase tracking-wide">
-              Monthly {view === "income" ? "income" : "expenses"} (recurring)
+              {tr("Monthly")}{" "}
+{view === "income" ? "income" : "expenses"} (recurring)
             </p>
             <p
               className="font-display text-2xl font-semibold"
@@ -263,7 +265,8 @@ export default function ForecastPage() {
           <div className="card p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-semibold">
-                Recurring {view === "income" ? "income" : "expenses"}
+                {tr("Recurring")}{" "}
+{view === "income" ? "income" : "expenses"}
               </h2>
               <button
                 className="faint text-sm"
@@ -271,7 +274,7 @@ export default function ForecastPage() {
                   startAdd(view === "income" ? "income" : "expense")
                 }
               >
-                + Add
+                {tr("+ Add")}
               </button>
             </div>
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -280,7 +283,7 @@ export default function ForecastPage() {
               ))}
               {(view === "income" ? incomeItems : expenseItems).length ===
                 0 && (
-                <p className="muted py-3 text-sm">Nothing recurring yet.</p>
+                <p className="muted py-3 text-sm">{tr("Nothing recurring yet.")}</p>
               )}
             </div>
           </div>
@@ -288,20 +291,18 @@ export default function ForecastPage() {
       )}
 
       {loading ? (
-        <p className="faint mt-6 text-center text-sm">Loading…</p>
+        <p className="faint mt-6 text-center text-sm">{tr("Loading…")}</p>
       ) : view !== "all" ? null : items.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="muted mx-auto mt-2 max-w-sm text-sm">
-            Add your recurring income (salary, rents) and expenses (rent,
-            insurance, subscriptions) and I&apos;ll project the next 12 months
-            for you.
+            {tr("Add your recurring income (salary, rents) and expenses (rent, insurance, subscriptions) and I'll project the next 12 months for you.")}
           </p>
           <div className="mt-4 flex justify-center gap-3">
             <button className="btn btn-primary" onClick={() => startAdd("income")}>
-              + Recurring income
+              {tr("+ Recurring income")}
             </button>
             <button className="btn btn-ghost" onClick={() => startAdd("expense")}>
-              + Recurring expense
+              {tr("+ Recurring expense")}
             </button>
           </div>
         </div>
@@ -311,7 +312,7 @@ export default function ForecastPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="card p-5">
               <p className="faint text-xs font-semibold uppercase tracking-wide">
-                Monthly income
+                {tr("Monthly income")}
               </p>
               <p
                 className="font-display text-2xl font-semibold"
@@ -322,7 +323,7 @@ export default function ForecastPage() {
             </div>
             <div className="card p-5">
               <p className="faint text-xs font-semibold uppercase tracking-wide">
-                Monthly expenses
+                {tr("Monthly expenses")}
               </p>
               <p className="font-display text-2xl font-semibold">
                 {money(monthlyExpense)}
@@ -330,7 +331,7 @@ export default function ForecastPage() {
             </div>
             <div className="card p-5">
               <p className="faint text-xs font-semibold uppercase tracking-wide">
-                Net in 12 months
+                {tr("Net in 12 months")}
               </p>
               <p
                 className="font-display text-2xl font-semibold"
@@ -345,7 +346,7 @@ export default function ForecastPage() {
           {/* Chart */}
           <div className="card p-6">
             <h2 className="mb-3 font-display font-semibold">
-              Next 12 months
+              {tr("Next 12 months")}
             </h2>
             <ForecastChart data={projection} />
           </div>
@@ -354,12 +355,12 @@ export default function ForecastPage() {
             {/* Recurring lists */}
             <div className="card p-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-semibold">Recurring income</h2>
+                <h2 className="font-display font-semibold">{tr("Recurring income")}</h2>
                 <button
                   className="faint text-sm"
                   onClick={() => startAdd("income")}
                 >
-                  + Add
+                  {tr("+ Add")}
                 </button>
               </div>
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -368,7 +369,7 @@ export default function ForecastPage() {
                 ))}
                 {incomeItems.length === 0 && (
                   <p className="muted py-3 text-sm">
-                    Salary, bonuses, Montfort income, rents…
+                    {tr("Salary, bonuses, Montfort income, rents…")}
                   </p>
                 )}
               </div>
@@ -376,13 +377,13 @@ export default function ForecastPage() {
             <div className="card p-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-semibold">
-                  Recurring expenses
+                  {tr("Recurring expenses")}
                 </h2>
                 <button
                   className="faint text-sm"
                   onClick={() => startAdd("expense")}
                 >
-                  + Add
+                  {tr("+ Add")}
                 </button>
               </div>
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -391,7 +392,7 @@ export default function ForecastPage() {
                 ))}
                 {expenseItems.length === 0 && (
                   <p className="muted py-3 text-sm">
-                    Rent, insurance, subscriptions, car payments…
+                    {tr("Rent, insurance, subscriptions, car payments…")}
                   </p>
                 )}
               </div>
@@ -401,18 +402,18 @@ export default function ForecastPage() {
           {/* Month-by-month table */}
           <div className="card overflow-x-auto p-6">
             <h2 className="mb-3 font-display font-semibold">
-              Month by month
+              {tr("Month by month")}
             </h2>
             <table className="w-full text-sm">
               <thead>
                 <tr className="faint text-left text-xs uppercase tracking-wide">
-                  <th className="py-2 pr-4 font-semibold">Month</th>
-                  <th className="py-2 pr-4 text-right font-semibold">Income</th>
+                  <th className="py-2 pr-4 font-semibold">{tr("Month")}</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{tr("Income")}</th>
                   <th className="py-2 pr-4 text-right font-semibold">
-                    Expenses
+                    {tr("Expenses")}
                   </th>
-                  <th className="py-2 pr-4 text-right font-semibold">Net</th>
-                  <th className="py-2 text-right font-semibold">Cumulative</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{tr("Net")}</th>
+                  <th className="py-2 text-right font-semibold">{tr("Cumulative")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -451,10 +452,10 @@ export default function ForecastPage() {
         onClose={() => setOpen(false)}
         title={
           draft?.id
-            ? "Edit recurring item"
+            ? tr("Edit recurring item")
             : draft?.kind === "income"
-              ? "New recurring income"
-              : "New recurring expense"
+              ? tr("New recurring income")
+              : tr("New recurring expense")
         }
       >
         {draft && (
@@ -468,23 +469,23 @@ export default function ForecastPage() {
                     setDraft({ ...draft, kind: k, category_id: "" })
                   }
                 >
-                  {k === "expense" ? "Expense" : "Income"}
+                  {k === "expense" ? tr("Expense") : tr("Income")}
                 </button>
               ))}
             </div>
             <div>
-              <label className="label">Name</label>
+              <label className="label">{tr("Name")}</label>
               <input
                 className="input"
                 placeholder={
-                  draft.kind === "income" ? "e.g. Salary" : "e.g. Rent"
+                  draft.kind === "income" ? tr("e.g. Salary") : tr("e.g. Rent")
                 }
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               />
             </div>
             <div>
-              <label className="label">Amount</label>
+              <label className="label">{tr("Amount")}</label>
               <input
                 className="input"
                 type="number"
@@ -497,7 +498,7 @@ export default function ForecastPage() {
               />
             </div>
             <div>
-              <label className="label">Repeats</label>
+              <label className="label">{tr("Repeats")}</label>
               <FrequencyPicker
                 value={draft.frequency}
                 onChange={(v) =>
@@ -506,7 +507,7 @@ export default function ForecastPage() {
               />
             </div>
             <div>
-              <label className="label">Category</label>
+              <label className="label">{tr("Category")}</label>
               <CategorySelect
                 cats={cats}
                 kind={draft.kind}
@@ -517,7 +518,7 @@ export default function ForecastPage() {
             </div>
             {accts.length > 0 && (
               <div>
-                <label className="label">Account</label>
+                <label className="label">{tr("Account")}</label>
                 <select
                   className="input"
                   value={draft.account_id}
@@ -525,7 +526,7 @@ export default function ForecastPage() {
                     setDraft({ ...draft, account_id: e.target.value })
                   }
                 >
-                  <option value="">No account</option>
+                  <option value="">{tr("No account")}</option>
                   {accts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -536,7 +537,7 @@ export default function ForecastPage() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Starts</label>
+                <label className="label">{tr("Starts")}</label>
                 <input
                   className="input"
                   type="date"
@@ -547,7 +548,7 @@ export default function ForecastPage() {
                 />
               </div>
               <div>
-                <label className="label">Ends — optional</label>
+                <label className="label">{tr("Ends — optional")}</label>
                 <input
                   className="input"
                   type="date"
@@ -559,11 +560,11 @@ export default function ForecastPage() {
               </div>
             </div>
             <button className="btn btn-primary" onClick={save} disabled={busy}>
-              {busy ? "Saving…" : draft.id ? "Save changes" : "Add"}
+              {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Add")}
             </button>
             {draft.id && (
               <button className="btn btn-danger" onClick={remove} disabled={busy}>
-                Delete
+                {tr("Delete")}
               </button>
             )}
           </div>
@@ -578,8 +579,7 @@ function DebtsView({ debts }: { debts: Debt[] }) {
     return (
       <div className="card p-8 text-center">
         <p className="muted mx-auto mt-2 max-w-sm text-sm">
-          No debts tracked. Add them from your month page — balance, rate and
-          payment — and this view shows exactly when each one dies.
+          {tr("No debts tracked. Add them from your month page — balance, rate and payment — and this view shows exactly when each one dies.")}
         </p>
       </div>
     );
@@ -600,7 +600,7 @@ function DebtsView({ debts }: { debts: Debt[] }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Total debt
+            {tr("Total debt")}
           </p>
           <p
             className="font-display text-2xl font-semibold"
@@ -611,23 +611,24 @@ function DebtsView({ debts }: { debts: Debt[] }) {
         </div>
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Debt-free by
+            {tr("Debt-free by")}
           </p>
           <p className="font-display text-2xl font-semibold">
             {worst ? payoffLabel(worst) : "—"}
           </p>
           <p className="faint text-xs">
-            paying {money(totalPayment)}/mo total
+            {tr("paying")}{" "}
+{money(totalPayment)}/mo total
           </p>
         </div>
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Interest left to pay
+            {tr("Interest left to pay")}
           </p>
           <p className="font-display text-2xl font-semibold">
             {money(totalInterest)}
           </p>
-          <p className="faint text-xs">across all debts, at current payments</p>
+          <p className="faint text-xs">{tr("across all debts, at current payments")}</p>
         </div>
       </div>
 
@@ -651,15 +652,14 @@ function DebtsView({ debts }: { debts: Debt[] }) {
               <p className="muted mt-2 text-sm">
                 {pm ? (
                   <>
-                    Paid off in <strong>{payoffLabel(pm)}</strong> ({n}{" "}
-                    payments of {money(d.planned_payment)})
+                    {tr("Paid off in")} <strong>{payoffLabel(pm)}</strong>{" "}
+                    {tr("({n} payments of {amt})", { n: n ?? 0, amt: money(d.planned_payment) })}
                     {interest !== null &&
-                      ` · ~${money(interest)} interest from here`}
+                      tr(" · ~{v0} interest from here", { v0: money(interest) })}
                   </>
                 ) : (
                   <span style={{ color: "var(--over)" }}>
-                    ⚠️ {money(d.planned_payment)}/mo doesn&apos;t cover interest
-                    at {d.apr}% — this one never dies. Raise the payment.
+                    {tr("⚠️ {amt}/mo doesn't cover interest at {apr}% — this one never dies. Raise the payment.", { amt: money(d.planned_payment), apr: d.apr })}
                   </span>
                 )}
               </p>
@@ -676,8 +676,7 @@ function InvestmentsView({ invs }: { invs: Investment[] }) {
     return (
       <div className="card p-8 text-center">
         <p className="muted mx-auto mt-2 max-w-sm text-sm">
-          No investments tracked. Add them from your month page and this view
-          projects where each balance is heading.
+          {tr("No investments tracked. Add them from your month page and this view projects where each balance is heading.")}
         </p>
       </div>
     );
@@ -700,7 +699,7 @@ function InvestmentsView({ invs }: { invs: Investment[] }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Invested today
+            {tr("Invested today")}
           </p>
           <p
             className="font-display text-2xl font-semibold"
@@ -716,21 +715,21 @@ function InvestmentsView({ invs }: { invs: Investment[] }) {
         </div>
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            By end of December
+            {tr("By end of December")}
           </p>
           <p className="font-display text-2xl font-semibold">
             ~{money(totalEoy)}
           </p>
-          <p className="faint text-xs">at each account&apos;s expected return</p>
+          <p className="faint text-xs">{tr("at each account's expected return")}</p>
         </div>
         <div className="card p-5">
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            In 12 months
+            {tr("In 12 months")}
           </p>
           <p className="font-display text-2xl font-semibold">
             ~{money(total12)}
           </p>
-          <p className="faint text-xs">before any new contributions</p>
+          <p className="faint text-xs">{tr("before any new contributions")}</p>
         </div>
       </div>
 
@@ -750,8 +749,7 @@ function InvestmentsView({ invs }: { invs: Investment[] }) {
                 <p className="muted text-sm">{money(iv.balance)}</p>
               </div>
               <p className="muted mt-2 text-sm">
-                ~{money(eoy)} by December · ~{money(in12)} in 12 months at{" "}
-                {iv.expected_apr}%/yr
+                {tr("~{eoy} by December · ~{in12} in 12 months at {apr}%/yr", { eoy: money(eoy), in12: money(in12), apr: iv.expected_apr })}
               </p>
               {iv.contributed_total > 0 && (
                 <p className="faint mt-1 text-xs">

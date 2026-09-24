@@ -200,3 +200,21 @@ export function spentByCategory(txs: Transaction[]): Map<string, number> {
   }
   return m;
 }
+
+/** transactions with from <= tx_date < to (both 'YYYY-MM-DD') */
+export async function fetchTransactionsRange(
+  from: string,
+  to: string
+): Promise<Transaction[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("transactions")
+    .select(
+      "id,account_id,category_id,kind,amount,tx_date,note,source,task_id,recurring_item_id,debt_id,investment_id,goal_id"
+    )
+    .gte("tx_date", from)
+    .lt("tx_date", to)
+    .order("tx_date", { ascending: false })
+    .limit(5000);
+  return (data ?? []).map((t) => ({ ...t, amount: Number(t.amount) })) as Transaction[];
+}

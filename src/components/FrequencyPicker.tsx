@@ -1,6 +1,7 @@
 "use client";
 
 import { frequencyHints, frequencyLabels } from "@/lib/recurring";
+import { tr } from "@/lib/i18n";
 import type { Frequency } from "@/lib/types";
 
 type Value = "none" | Frequency;
@@ -27,8 +28,8 @@ export function FrequencyPicker({
   allowNone?: boolean;
 }) {
   const pills: { v: Value; label: string }[] = [
-    ...(allowNone ? [{ v: "none" as Value, label: "One-time" }] : []),
-    ...order.map((f) => ({ v: f as Value, label: frequencyLabels[f] })),
+    ...(allowNone ? [{ v: "none" as Value, label: tr("One-time") }] : []),
+    ...order.map((f) => ({ v: f as Value, label: tr(frequencyLabels[f]) })),
   ];
 
   return (
@@ -47,8 +48,8 @@ export function FrequencyPicker({
       </div>
       <p className="faint mt-1.5 text-xs">
         {value === "none"
-          ? "Logged once, just in this month."
-          : frequencyHints[value as Frequency]}
+          ? tr("Logged once, just in this month.")
+          : tr(frequencyHints[value as Frequency])}
       </p>
     </div>
   );

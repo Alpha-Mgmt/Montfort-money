@@ -3,6 +3,20 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { buildAskContext } from "@/lib/insights";
 import { addMonths, monthStartISO, todayISO } from "@/lib/format";
 
+
+function aiContext(body: any): string {
+  const es = body?.lang === "es";
+  const biz = body?.space === "business";
+  return (
+    (biz
+      ? "This data is the user's BUSINESS space (their business's money, kept apart from personal money): talk about revenue, costs and profit. "
+      : "") +
+    (es
+      ? "IMPORTANT: the user reads Spanish — write every word of your answer in natural Latin-American Spanish (tú). Format money as $1,234. "
+      : "")
+  );
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -20,9 +34,11 @@ export async function POST(request: Request) {
   }
 
   let month = monthStartISO();
+  let extra = "";
   let messages: ChatMsg[] = [];
   try {
     const body = await request.json();
+    extra = aiContext(body);
     if (typeof body?.month === "string" && /^\d{4}-\d{2}-01$/.test(body.month)) {
       month = body.month;
     }
@@ -140,6 +156,7 @@ export async function POST(request: Request) {
     "You are Montfort AI, the money assistant inside the Montfort Money app. " +
     "You answer the user's questions about their own finances using ONLY the data provided below (amounts in USD). " +
     "Answer in English, warm and concise — a few sentences, not an essay. Format money as $1,234. You can do arithmetic on the data. " +
+    extra +
     "If the data doesn't contain what's needed to answer, say so plainly and suggest what they could add or which month to check. " +
     "The 'yearToDate.byCategory' totals cover January 1 through the viewed month; use them for 'this year' questions. " +
     "You provide informational analysis, not licensed financial or investment advice — when asked for a recommendation, lay out the trade-offs with their real numbers and remind them you're not a licensed advisor. " +

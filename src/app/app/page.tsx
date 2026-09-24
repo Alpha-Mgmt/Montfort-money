@@ -77,6 +77,7 @@ import type {
   Task,
   Transaction,
 } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 export default function MonthPage() {
   const router = useRouter();
@@ -543,7 +544,7 @@ export default function MonthPage() {
         title:
           note ||
           cats.find((c) => c.id === catId)?.name ||
-          (kind === "income" ? "Income" : "Expense"),
+          (kind === "income" ? tr("Income") : tr("Expense")),
         kind,
         amount,
         category_id: catId,
@@ -640,7 +641,7 @@ export default function MonthPage() {
       return (
         <button
           className="faint hover:underline"
-          title="Set this month's plan"
+          title={tr("Set this month's plan")}
           onClick={() => {
             setVal(plan > 0 ? String(plan) : "");
             setEditing(true);
@@ -682,7 +683,7 @@ export default function MonthPage() {
     const [confirm, setConfirm] = useState(false);
     return (
       <button
-        aria-label="Delete category"
+        aria-label={tr("Delete category")}
         className="shrink-0 text-xs"
         style={{ color: confirm ? "var(--over)" : "var(--text-faint)" }}
         onClick={async () => {
@@ -736,7 +737,7 @@ export default function MonthPage() {
           </button>
           <button
             className="shrink-0 text-sm hover:opacity-80"
-            title={received > 0 ? "Tap to edit what you logged" : undefined}
+            title={received > 0 ? tr("Tap to edit what you logged") : undefined}
             onClick={() => {
               if (linked.length === 1) editTx(linked[0]);
               else setExpandedItem(open ? null : item.id);
@@ -754,7 +755,7 @@ export default function MonthPage() {
           {!isFuture && (
             <ConfirmPay
               amount={item.amount}
-              label={`Add to ${item.title}`}
+              label={tr("Add to {v0}", { v0: item.title })}
               onConfirm={(amount) =>
                 quickAddTx(
                   kind,
@@ -781,7 +782,7 @@ export default function MonthPage() {
             style={{ borderColor: "var(--border)" }}
           >
             <p className="faint py-1 text-xs">
-              {frequencyLabels[item.frequency]}
+              {tr(frequencyLabels[item.frequency])}
               {schedule.length > 0 && (
                 <>
                   {" · scheduled "}
@@ -799,7 +800,7 @@ export default function MonthPage() {
                   <span className="muted">{money(t.amount)}</span>
                 </button>
                 <button
-                  aria-label="Delete this entry"
+                  aria-label={tr("Delete this entry")}
                   className="shrink-0 text-xs"
                   style={{
                     color:
@@ -823,7 +824,7 @@ export default function MonthPage() {
             ))}
             {linked.length === 0 && (
               <p className="faint py-1 text-xs">
-                Nothing yet — tap ✓ when money moves.
+                {tr("Nothing yet — tap ✓ when money moves.")}
               </p>
             )}
             <div className="py-1">
@@ -842,8 +843,8 @@ export default function MonthPage() {
                 }}
               >
                 {confirmDel
-                  ? "Tap again — removes the plan, keeps what you logged"
-                  : "Remove plan"}
+                  ? tr("Tap again — removes the plan, keeps what you logged")
+                  : tr("Remove plan")}
               </button>
             </div>
           </div>
@@ -879,7 +880,7 @@ export default function MonthPage() {
         >
           {hasDetail ? (
             <button
-              aria-label={isCollapsed ? `Expand ${cat.name}` : `Collapse ${cat.name}`}
+              aria-label={isCollapsed ? tr("Expand {v0}", { v0: cat.name }) : tr("Collapse {v0}", { v0: cat.name })}
               className="faint w-4 shrink-0 text-xs"
               onClick={() => toggleCollapse(cat.id)}
             >
@@ -912,7 +913,7 @@ export default function MonthPage() {
           <LineItemAdd
             defaultDate={quickDate}
             placeholder={
-              kind === "income" ? "e.g. bonus" : "e.g. tires, insurance…"
+              kind === "income" ? tr("e.g. bonus") : tr("e.g. tires, insurance…")
             }
             onSubmit={(amount, note, freq, date) =>
               quickAddTx(kind, cat.id, amount, note, freq, date)
@@ -985,7 +986,7 @@ export default function MonthPage() {
         <div className="flex items-center justify-between gap-3">
           <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
             <button
-              aria-label={gCollapsed ? `Expand ${g.name}` : `Collapse ${g.name}`}
+              aria-label={gCollapsed ? tr("Expand {v0}", { v0: g.name }) : tr("Collapse {v0}", { v0: g.name })}
               className="faint w-4 shrink-0 text-xs"
               onClick={() => toggleCollapse(`g-${g.id}`)}
             >
@@ -996,10 +997,10 @@ export default function MonthPage() {
             {!pinnedView && !gCollapsed && (
               <button
                 className="faint ml-1 text-xs font-normal"
-                title="Show as its own section"
+                title={tr("Show as its own section")}
                 onClick={() => togglePin(g.id, true)}
               >
-                ↗ own section
+                {tr("↗ own section")}
               </button>
             )}
           </p>
@@ -1018,7 +1019,7 @@ export default function MonthPage() {
             {members.map((c) => (
               <CategoryRow
                 key={c.id}
-                cat={c.id === g.id ? { ...c, name: "General" } : c}
+                cat={c.id === g.id ? { ...c, name: tr("General") } : c}
                 kind={kind}
               />
             ))}
@@ -1037,13 +1038,13 @@ export default function MonthPage() {
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-lg font-semibold">
-              {kind === "income" ? "Income" : "Expenses"}
+              {kind === "income" ? tr("Income") : tr("Expenses")}
             </h2>
             <button
-              className="btn btn-ghost !px-2.5 !py-0.5 !text-xs"
+              className="btn btn-ghost whitespace-nowrap !px-2.5 !py-0.5 !text-xs"
               onClick={() => setCatSheetKind(kind)}
             >
-              + Category
+              {tr("+ Category")}
             </button>
           </div>
           <span
@@ -1075,7 +1076,7 @@ export default function MonthPage() {
             <CategoryRow
               cat={{
                 id: "uncategorized",
-                name: "Uncategorized",
+                name: tr("Uncategorized"),
                 icon: "🗂️",
                 kind,
                 parent_id: null,
@@ -1094,13 +1095,13 @@ export default function MonthPage() {
       {/* Header — month control sized like the rail cards below it */}
       <div className="relative z-30 grid items-center gap-3 lg:grid-cols-3 lg:gap-4">
         <h1 className="font-display text-2xl font-semibold lg:col-span-2">
-          <span className="text-grad">{name ? `Hey, ${name}` : "Your month"}</span>
+          <span className="text-grad">{name ? tr("Hey, {name}", { name }) : tr("Your month")}</span>
         </h1>
         <div className="card flex items-center justify-between px-2 py-1.5">
           <button
             className="btn btn-ghost !border-0 !px-3"
             onClick={() => setMonth(addMonths(month, -1))}
-            aria-label="Previous month"
+            aria-label={tr("Previous month")}
           >
             ←
           </button>
@@ -1108,7 +1109,7 @@ export default function MonthPage() {
           <button
             className="btn btn-ghost !border-0 !px-3"
             onClick={() => setMonth(addMonths(month, 1))}
-            aria-label="Next month"
+            aria-label={tr("Next month")}
           >
             →
           </button>
@@ -1116,7 +1117,7 @@ export default function MonthPage() {
       </div>
 
       {loading ? (
-        <p className="faint mt-10 text-center text-sm">Loading your month…</p>
+        <p className="faint mt-10 text-center text-sm">{tr("Loading your month…")}</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <div className="grid gap-4 lg:col-span-2">
@@ -1125,7 +1126,7 @@ export default function MonthPage() {
               {/* Income */}
               <div className="card p-4">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Income
+                  {tr("Income")}
                 </p>
                 <p
                   className="font-display text-xl font-semibold"
@@ -1135,7 +1136,7 @@ export default function MonthPage() {
                 </p>
                 {planIncome > 0 && (
                   <>
-                    <p className="faint text-xs">of {money(planIncome)}</p>
+                    <p className="faint text-xs">{tr("of")}{" "}{money(planIncome)}</p>
                     <div className="mt-1.5">
                       <ProgressBar
                         spent={Math.min(incomeTotal, planIncome)}
@@ -1148,7 +1149,7 @@ export default function MonthPage() {
                   className="faint mt-2 text-xs hover:underline"
                   onClick={() => toggleBox("income")}
                 >
-                  {openBoxes.has("income") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                  {openBoxes.has("income") ? tr("Hide breakdown ▴") : tr("Breakdown ▾")}
                 </button>
                 {openBoxes.has("income") && (
                   <div className="divider mt-2 grid gap-0.5 pt-2 text-xs">
@@ -1177,7 +1178,7 @@ export default function MonthPage() {
                       })}
                     {invMonthlyIncome > 0 && (
                       <div className="flex justify-between">
-                        <span className="faint truncate">Investments (est.)</span>
+                        <span className="faint truncate">{tr("Investments (est.)")}</span>
                         <span
                           className="shrink-0"
                           style={{ color: "var(--mint)" }}
@@ -1193,14 +1194,14 @@ export default function MonthPage() {
               {/* Spent */}
               <div className="card p-4">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Spent
+                  {tr("Spent")}
                 </p>
                 <p className="font-display text-xl font-semibold">
                   {money(expenseTotal)}
                 </p>
                 {planExpense > 0 && (
                   <>
-                    <p className="faint text-xs">of {money(planExpense)}</p>
+                    <p className="faint text-xs">{tr("of")}{" "}{money(planExpense)}</p>
                     <div className="mt-1.5">
                       <ProgressBar spent={expenseTotal} limit={planExpense} />
                     </div>
@@ -1210,29 +1211,29 @@ export default function MonthPage() {
                   className="faint mt-2 text-xs hover:underline"
                   onClick={() => toggleBox("spent")}
                 >
-                  {openBoxes.has("spent") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                  {openBoxes.has("spent") ? tr("Hide breakdown ▴") : tr("Breakdown ▾")}
                 </button>
                 {openBoxes.has("spent") && (
                   <div className="divider mt-2 grid gap-0.5 pt-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="muted">Spending</span>
+                      <span className="muted">{tr("Spending")}</span>
                       <span>{money(spendingOnly)}</span>
                     </div>
                     {debtPaidTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="muted">To debt</span>
+                        <span className="muted">{tr("To debt")}</span>
                         <span>{money(debtPaidTotal)}</span>
                       </div>
                     )}
                     {invContribTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="muted">Invested</span>
+                        <span className="muted">{tr("Invested")}</span>
                         <span>{money(invContribTotal)}</span>
                       </div>
                     )}
                     {goalContribTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="muted">To goals</span>
+                        <span className="muted">{tr("To goals")}</span>
                         <span>{money(goalContribTotal)}</span>
                       </div>
                     )}
@@ -1243,7 +1244,7 @@ export default function MonthPage() {
               {/* Left */}
               <div className="card p-4">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Left
+                  {tr("Left")}
                 </p>
                 <p
                   className="font-display text-xl font-semibold"
@@ -1255,26 +1256,26 @@ export default function MonthPage() {
                 {planIncome - planExpense !== 0 && (
                   <p className="faint text-xs">
                     {planIncome - planExpense >= 0 ? "+" : "−"}
-                    {money(Math.abs(planIncome - planExpense))} planned
+                    {tr("{amt} planned", { amt: money(Math.abs(planIncome - planExpense)) })}
                   </p>
                 )}
                 <button
                   className="faint mt-2 text-xs hover:underline"
                   onClick={() => toggleBox("left")}
                 >
-                  {openBoxes.has("left") ? "Hide breakdown ▴" : "Breakdown ▾"}
+                  {openBoxes.has("left") ? tr("Hide breakdown ▴") : tr("Breakdown ▾")}
                 </button>
                 {openBoxes.has("left") && (
                   <div className="divider mt-2 grid gap-1 pt-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="muted">Now</span>
+                      <span className="muted">{tr("Now")}</span>
                       <span>
                         {net >= 0 ? "+" : "−"}
                         {money(Math.abs(net))}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="muted">Planned end of month</span>
+                      <span className="muted">{tr("Planned end of month")}</span>
                       <span
                         style={{
                           color:
@@ -1289,7 +1290,7 @@ export default function MonthPage() {
                     </div>
                     {goalsPlanMonthly > 0 && (
                       <div className="flex justify-between">
-                        <span className="muted">Goals this month</span>
+                        <span className="muted">{tr("Goals this month")}</span>
                         <span>
                           {money(goalContribTotal)} / {money(goalsPlanMonthly)}
                         </span>
@@ -1301,8 +1302,7 @@ export default function MonthPage() {
             </div>
             {isFuture && (
               <p className="faint -mt-2 text-xs">
-                Future month — left side is what's logged, right side is the
-                plan.
+                {tr("Future month — left side is what's logged, right side is the plan.")}
               </p>
             )}
 
@@ -1354,7 +1354,7 @@ export default function MonthPage() {
                       {members.map((c) => (
                         <CategoryRow
                           key={c.id}
-                          cat={c.id === p.id ? { ...c, name: "General" } : c}
+                          cat={c.id === p.id ? { ...c, name: tr("General") } : c}
                           kind={p.kind}
                         />
                       ))}
@@ -1363,8 +1363,9 @@ export default function MonthPage() {
                       className="faint mt-3 text-xs underline underline-offset-4"
                       onClick={() => togglePin(p.id, false)}
                     >
-                      ↙ Move back into{" "}
-                      {p.kind === "income" ? "Income" : "Expenses"}
+                      {tr("↙ Move back into")}
+{" "}
+                      {p.kind === "income" ? tr("Income") : tr("Expenses")}
                     </button>
                   </div>
                 );
@@ -1374,7 +1375,7 @@ export default function MonthPage() {
             {showDebts && (
             <div className="card p-6">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">Debts</h2>
+                <h2 className="font-display text-lg font-semibold">{tr("Debts")}</h2>
                 <div className="flex items-center gap-3">
                   {totalDebt > 0 && (
                     <span
@@ -1391,14 +1392,13 @@ export default function MonthPage() {
                       setDebtOpen(true);
                     }}
                   >
-                    + Add
+                    {tr("+ Add")}
                   </button>
                 </div>
               </div>
               {debts.length === 0 ? (
                 <p className="muted py-2 text-sm">
-                  Add a card or loan — balance, rate and payment — and I'll
-                  tell you exactly when it dies.
+                  {tr("Add a card or loan — balance, rate and payment — and I'll tell you exactly when it dies.")}
                 </p>
               ) : (
                 <div className="grid gap-3">
@@ -1421,22 +1421,22 @@ export default function MonthPage() {
                               {d.name}
                             </p>
                             <p className="faint pl-5 text-xs">
-                              {money(d.balance)} left
+                              {tr("{amt} left", { amt: money(d.balance) })}
                               {d.apr > 0 && ` · ${d.apr}% APR`}
                               {" · "}
                               {pm
-                                ? `paid off ${payoffLabel(pm)}`
-                                : "payment doesn't cover interest"}
+                                ? tr("paid off {v0}", { v0: payoffLabel(pm) })
+                                : tr("payment doesn't cover interest")}
                             </p>
                             {(d.payment_due_day || d.statement_close_day) && (
                               <p className="muted pl-5 text-xs font-medium">
                                 {d.payment_due_day &&
-                                  `Due day ${d.payment_due_day}`}
+                                  tr("Due day {v0}", { v0: d.payment_due_day })}
                                 {d.payment_due_day &&
                                   d.statement_close_day &&
                                   " · "}
                                 {d.statement_close_day &&
-                                  `statement closes day ${d.statement_close_day}`}
+                                  tr("statement closes day {v0}", { v0: d.statement_close_day })}
                               </p>
                             )}
                           </button>
@@ -1447,12 +1447,12 @@ export default function MonthPage() {
                               </span>
                             ) : (
                               <span className="faint">
-                                plan {money(d.planned_payment)}/mo
+                                {tr("plan {amt}/mo", { amt: money(d.planned_payment) })}
                               </span>
                             )}
                           </span>
                           <QuickAdd
-                            label={`payment to ${d.name}`}
+                            label={tr("payment to {v0}", { v0: d.name })}
                             onSubmit={(amount) => quickPayDebt(d.id, amount)}
                           />
                         </div>
@@ -1460,9 +1460,9 @@ export default function MonthPage() {
                           <div className="mt-2">
                             <ProgressBar spent={prog * 100} limit={100} />
                             <p className="faint mt-1 text-xs">
-                              {Math.round(prog * 100)}% paid off
-                              {d.original_amount &&
-                                ` of ${money(d.original_amount)}`}
+                              {d.original_amount
+                                ? tr("{pct}% paid off of {amt}", { pct: Math.round(prog * 100), amt: money(d.original_amount) })
+                                : tr("{pct}% paid off", { pct: Math.round(prog * 100) })}
                             </p>
                           </div>
                         )}
@@ -1479,7 +1479,7 @@ export default function MonthPage() {
             <div className="card p-6">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold">
-                  Investments
+                  {tr("Investments")}
                 </h2>
                 <div className="flex items-center gap-3">
                   {totalInvested > 0 && (
@@ -1497,14 +1497,13 @@ export default function MonthPage() {
                       setInvOpen(true);
                     }}
                   >
-                    + Add
+                    {tr("+ Add")}
                   </button>
                 </div>
               </div>
               {invs.length === 0 ? (
                 <p className="muted py-2 text-sm">
-                  Track brokerage, retirement, crypto or your house fund — and
-                  watch the balance grow with each contribution.
+                  {tr("Track brokerage, retirement, crypto or your house fund — and watch the balance grow with each contribution.")}
                 </p>
               ) : (
                 <div className="grid gap-3">
@@ -1536,14 +1535,13 @@ export default function MonthPage() {
                             {iv.name}
                           </p>
                           <p className="faint pl-5 text-xs">
-                            {money(iv.balance)} now · ~{money(eoy)} by Dec at{" "}
-                            {iv.expected_apr}%
+                            {tr("{bal} now · ~{eoy} by Dec at {apr}%", { bal: money(iv.balance), eoy: money(eoy), apr: iv.expected_apr })}
                           </p>
                           {iv.monthly_amount > 0 && (
                             <p className="muted pl-5 text-xs font-medium">
                               {iv.monthly_kind === "withdraw"
-                                ? `Taking out ${money(iv.monthly_amount)}/mo (income)`
-                                : `Putting in ${money(iv.monthly_amount)}/mo (expense)`}
+                                ? tr("Taking out {v0}/mo (income)", { v0: money(iv.monthly_amount) })
+                                : tr("Putting in {v0}/mo (expense)", { v0: money(iv.monthly_amount) })}
                             </p>
                           )}
                         </button>
@@ -1566,12 +1564,12 @@ export default function MonthPage() {
                           )}
                         </span>
                         <QuickAdd
-                          label={`withdrawal from ${iv.name}`}
+                          label={tr("withdrawal from {v0}", { v0: iv.name })}
                           variant="withdraw"
                           onSubmit={(amount) => quickWithdraw(iv.id, amount)}
                         />
                         <QuickAdd
-                          label={`contribution to ${iv.name}`}
+                          label={tr("contribution to {v0}", { v0: iv.name })}
                           onSubmit={(amount) => quickContribute(iv.id, amount)}
                         />
                       </div>
@@ -1585,7 +1583,7 @@ export default function MonthPage() {
             {/* -------- Goals -------- */}
             <div className="card p-6">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">Goals</h2>
+                <h2 className="font-display text-lg font-semibold">{tr("Goals")}</h2>
                 <div className="flex items-center gap-3">
                   {totalGoalSaved > 0 && (
                     <span
@@ -1602,14 +1600,13 @@ export default function MonthPage() {
                       setGoalOpen(true);
                     }}
                   >
-                    + Add
+                    {tr("+ Add")}
                   </button>
                 </div>
               </div>
               {goals.length === 0 ? (
                 <p className="muted py-2 text-sm">
-                  A house, a car, a watch, a trip — set a target and a date and
-                  I'll tell you exactly what each paycheck needs to give.
+                  {tr("A house, a car, a watch, a trip — set a target and a date and I'll tell you exactly what each paycheck needs to give.")}
                 </p>
               ) : (
                 <div className="grid gap-3">
@@ -1640,19 +1637,18 @@ export default function MonthPage() {
                               {g.name}
                             </p>
                             <p className="faint pl-5 text-xs">
-                              {money(g.saved)} of {money(g.target_amount)} ·{" "}
-                              {pct}%
+                              {tr("{saved} of {target} · {pct}%", { saved: money(g.saved), target: money(g.target_amount), pct })}
                             </p>
                           </button>
                           <span className="shrink-0 text-xs">
                             {added > 0 && (
                               <span className="chip">
-                                +{money(added)} this month
+                                {tr("+{amt} this month", { amt: money(added) })}
                               </span>
                             )}
                           </span>
                           <QuickAdd
-                            label={`contribution to ${g.name}`}
+                            label={tr("contribution to {v0}", { v0: g.name })}
                             onSubmit={(amount) => quickFundGoal(g.id, amount)}
                           />
                         </div>
@@ -1661,17 +1657,15 @@ export default function MonthPage() {
                         </div>
                         {m.perMonth !== null ? (
                           <p className="faint mt-1 text-xs">
-                            Needs {money(m.perMonth)}/mo — ~
-                            {money(m.perCheck!)} per paycheck for {m.months}{" "}
-                            more months
-                            {g.target_date && ` · by ${g.target_date}`}
+                            {tr("Needs {mo}/mo — ~{check} per paycheck for {n} more months", { mo: money(m.perMonth), check: money(m.perCheck!), n: m.months })}
+                            {g.target_date && tr(" · by {v0}", { v0: g.target_date })}
                           </p>
                         ) : g.saved >= g.target_amount ? (
                           <p
                             className="mt-1 text-xs"
                             style={{ color: "var(--mint)" }}
                           >
-                            Target reached — nice.
+                            {tr("Target reached — nice.")}
                           </p>
                         ) : null}
                       </div>
@@ -1682,12 +1676,13 @@ export default function MonthPage() {
             </div>
 
             <p className="faint text-xs">
-              Need the full history?{" "}
+              {tr("Need the full history?")}
+{" "}
               <Link
                 href="/app/transactions"
                 className="underline underline-offset-4"
               >
-                All activity →
+                {tr("All activity →")}
               </Link>
             </p>
           </div>
@@ -1703,7 +1698,7 @@ export default function MonthPage() {
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--over)" }}
                 >
-                  Heads up — red months ahead
+                  {tr("Heads up — red months ahead")}
                 </p>
                 <div className="mt-2 grid gap-1.5 text-sm">
                   {redMonths.map((p) => (
@@ -1719,7 +1714,7 @@ export default function MonthPage() {
                   href="/app/forecast"
                   className="faint mt-2 inline-block text-xs underline underline-offset-4"
                 >
-                  See the full forecast →
+                  {tr("See the full forecast →")}
                 </Link>
               </div>
             )}
@@ -1727,7 +1722,8 @@ export default function MonthPage() {
             {(totalInvested > 0 || totalDebt > 0 || net !== 0) && (
               <div className="card p-5">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Net worth{monthsAhead > 0 ? ` by ${monthLabel(month)}` : ""}
+                  {tr("Net worth")}
+{monthsAhead > 0 ? tr(" by {v0}", { v0: monthLabel(month) }) : ""}
                 </p>
                 <p
                   className={`font-display text-2xl font-semibold ${
@@ -1742,11 +1738,11 @@ export default function MonthPage() {
                 </p>
                 <div className="mt-2 grid gap-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="muted">Invested</span>
+                    <span className="muted">{tr("Invested")}</span>
                     <span>{money(totalInvested)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="muted">Debt</span>
+                    <span className="muted">{tr("Debt")}</span>
                     <span style={{ color: "var(--over)" }}>
                       −{money(totalDebt)}
                     </span>
@@ -1754,8 +1750,8 @@ export default function MonthPage() {
                   <div className="flex justify-between">
                     <span className="muted">
                       {monthsAhead > 0
-                        ? `Plan through ${monthLabel(month)}`
-                        : "Net this month"}
+                        ? tr("Plan through {v0}", { v0: monthLabel(month) })
+                        : tr("Net this month")}
                     </span>
                     <span
                       style={{
@@ -1776,7 +1772,7 @@ export default function MonthPage() {
             {runway && (
               <div className="card p-5">
                 <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  Safe to spend
+                  {tr("Safe to spend")}
                 </p>
                 <p
                   className={`font-display text-3xl font-semibold ${
@@ -1792,7 +1788,8 @@ export default function MonthPage() {
                   )}
                 </p>
                 <p className="muted mt-1 text-sm">
-                  before your next paycheck, {shortDate(runway.nextCheck)}
+                  {tr("before your next paycheck,")}{" "}
+{shortDate(runway.nextCheck)}
                 </p>
                 {!runway.covered && (
                   <p className="mt-1 text-sm" style={{ color: "var(--over)" }}>
@@ -1804,25 +1801,25 @@ export default function MonthPage() {
                   className="faint mt-3 text-xs hover:underline"
                   onClick={() => toggleBox("runway")}
                 >
-                  {openBoxes.has("runway") ? "Hide the math ▴" : "How's this figured? ▾"}
+                  {openBoxes.has("runway") ? tr("Hide the math ▴") : tr("How's this figured? ▾")}
                 </button>
                 {openBoxes.has("runway") && (
                   <div className="divider mt-2 grid gap-1 pt-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="muted">Cash on hand</span>
+                      <span className="muted">{tr("Cash on hand")}</span>
                       <span>{money(runway.onHand)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="muted">Bills coming</span>
+                      <span className="muted">{tr("Bills coming")}</span>
                       <span>−{money(runway.dueSum)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="muted">Everyday spending (est.)</span>
+                      <span className="muted">{tr("Everyday spending (est.)")}</span>
                       <span>−{money(runway.everyday)}</span>
                     </div>
                     {!runway.covered && runway.pushable.length > 0 && (
                       <div className="divider mt-1 pt-1.5">
-                        <p className="faint mb-1 text-xs">Could push:</p>
+                        <p className="faint mb-1 text-xs">{tr("Could push:")}</p>
                         {runway.pushable.map((b) => (
                           <div key={b.key} className="flex justify-between">
                             <span className="muted truncate">{b.title}</span>
@@ -1841,9 +1838,9 @@ export default function MonthPage() {
             {(pendingTasks.length > 0 || upcoming.length > 0) && (
               <div className="card p-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-display font-semibold">Up next</h2>
+                  <h2 className="font-display font-semibold">{tr("Up next")}</h2>
                   <Link href="/app/tasks" className="faint text-sm">
-                    All →
+                    {tr("All →")}
                   </Link>
                 </div>
                 <div className="mt-3 grid gap-2">
@@ -1854,7 +1851,7 @@ export default function MonthPage() {
                     >
                       <ConfirmPay
                         amount={u.amount}
-                        label={`Mark ${u.title} paid`}
+                        label={tr("Mark {v0} paid", { v0: u.title })}
                         onConfirm={async (amount) => {
                           if (u.type === "debt" && u.debtId)
                             await quickPayDebt(u.debtId, amount);
@@ -1890,7 +1887,7 @@ export default function MonthPage() {
                     >
                       <button
                         onClick={() => completeTask(t.id)}
-                        aria-label={`Complete ${t.title}`}
+                        aria-label={tr("Complete {v0}", { v0: t.title })}
                         className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2"
                         style={{ borderColor: "var(--mint)" }}
                       />
@@ -1902,7 +1899,7 @@ export default function MonthPage() {
                           {t.amount != null && `${money(t.amount)} · `}
                           {t.due_date
                             ? t.due_date < todayISO()
-                              ? `overdue — ${shortDate(t.due_date)}`
+                              ? tr("overdue — {v0}", { v0: shortDate(t.due_date) })
                               : shortDate(t.due_date)
                             : "no date"}
                         </p>
@@ -1916,7 +1913,7 @@ export default function MonthPage() {
             {(debts.some((d) => d.payment_due_day) ||
               accts.some((a) => a.payment_due_day || a.statement_close_day)) && (
               <div className="card p-5">
-                <h2 className="font-display font-semibold">Money dates</h2>
+                <h2 className="font-display font-semibold">{tr("Money dates")}</h2>
                 <div className="mt-2 grid gap-1.5">
                   {debts
                     .filter((d) => d.payment_due_day || d.statement_close_day)
@@ -1925,10 +1922,10 @@ export default function MonthPage() {
                         <p className="font-medium">{d.name}</p>
                         <p className="faint text-xs">
                           {d.statement_close_day &&
-                            `Statement closes day ${d.statement_close_day}`}
+                            tr("Statement closes day {v0}", { v0: d.statement_close_day })}
                           {d.statement_close_day && d.payment_due_day && " · "}
                           {d.payment_due_day &&
-                            `Payment due day ${d.payment_due_day}`}
+                            tr("Payment due day {v0}", { v0: d.payment_due_day })}
                         </p>
                       </div>
                     ))}
@@ -1941,10 +1938,10 @@ export default function MonthPage() {
                         <p className="font-medium">{a.name}</p>
                         <p className="faint text-xs">
                           {a.statement_close_day &&
-                            `Statement closes day ${a.statement_close_day}`}
+                            tr("Statement closes day {v0}", { v0: a.statement_close_day })}
                           {a.statement_close_day && a.payment_due_day && " · "}
                           {a.payment_due_day &&
-                            `Payment due day ${a.payment_due_day}`}
+                            tr("Payment due day {v0}", { v0: a.payment_due_day })}
                         </p>
                       </div>
                     ))}

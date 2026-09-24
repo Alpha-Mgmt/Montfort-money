@@ -3,7 +3,7 @@ export type Kind = "expense" | "income";
 export type Account = {
   id: string;
   name: string;
-  type: "cash" | "checking" | "savings" | "credit" | "loan" | "other";
+  type: "cash" | "checking" | "savings" | "credit" | "loan" | "investment" | "other";
   source: "manual" | "plaid";
   currency: string;
   archived: boolean;

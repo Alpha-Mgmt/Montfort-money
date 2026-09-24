@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tr } from "@/lib/i18n";
 
 /**
  * The two-second logger: a "+" that flips into a small amount input.
@@ -79,7 +80,7 @@ export function QuickAdd({
         />
       </span>
       <button
-        aria-label="Save"
+        aria-label={tr("Save")}
         onClick={submit}
         disabled={busy}
         className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold"
@@ -92,7 +93,7 @@ export function QuickAdd({
         ✓
       </button>
       <button
-        aria-label="Cancel"
+        aria-label={tr("Cancel")}
         onClick={() => {
           setOpen(false);
           setValue("");

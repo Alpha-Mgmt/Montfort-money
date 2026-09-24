@@ -18,6 +18,7 @@ import { categoryPath } from "@/components/CategorySelect";
 import { CategoryDot } from "@/components/CategoryDot";
 import { TxSheet, emptyTxDraft, type TxDraft } from "@/components/TxSheet";
 import type { Account, Category, Transaction } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 function TransactionsInner() {
   const params = useSearchParams();
@@ -99,7 +100,7 @@ function TransactionsInner() {
         <button
           className="btn btn-ghost !px-3"
           onClick={() => setMonth(addMonths(month, -1))}
-          aria-label="Previous month"
+          aria-label={tr("Previous month")}
         >
           ←
         </button>
@@ -109,7 +110,7 @@ function TransactionsInner() {
         <button
           className="btn btn-ghost !px-3"
           onClick={() => setMonth(addMonths(month, 1))}
-          aria-label="Next month"
+          aria-label={tr("Next month")}
         >
           →
         </button>
@@ -118,23 +119,23 @@ function TransactionsInner() {
       <div className="card flex items-center justify-between p-5">
         <div>
           <p className="faint text-xs font-semibold uppercase tracking-wide">
-            Spent
+            {tr("Spent")}
           </p>
           <p className="font-display text-2xl font-semibold">
             {money(totalSpent)}
           </p>
         </div>
         <button className="btn btn-primary" onClick={startAdd}>
-          + Add
+          {tr("+ Add")}
         </button>
       </div>
 
       {loading ? (
-        <p className="faint mt-6 text-center text-sm">Loading…</p>
+        <p className="faint mt-6 text-center text-sm">{tr("Loading…")}</p>
       ) : grouped.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="muted mt-2 text-sm">
-            No transactions in {monthLabel(month)}.
+            {tr("No transactions in {m}.", { m: monthLabel(month) })}
           </p>
         </div>
       ) : (
@@ -153,14 +154,14 @@ function TransactionsInner() {
                     className="divider flex w-full items-center justify-between py-3 text-left first:border-t-0"
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <CategoryDot name={cat?.name ?? "Uncategorized"} />
+                      <CategoryDot name={cat?.name ?? tr("Uncategorized")} />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
-                          {t.note || cat?.name || "Transaction"}
+                          {t.note || cat?.name || tr("Transaction")}
                         </p>
                         <p className="faint truncate text-xs">
                           {categoryPath(cats, t.category_id)?.label ??
-                            "Uncategorized"}
+                            tr("Uncategorized")}
                           {t.source === "task" && " · from task"}
                         </p>
                       </div>

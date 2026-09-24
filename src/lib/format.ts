@@ -1,3 +1,9 @@
+let LOCALE = "en-US";
+/** called by AppProvider when the language changes */
+export function setFormatLocale(lang: "en" | "es") {
+  LOCALE = lang === "es" ? "es-US" : "en-US";
+}
+
 export function money(n: number, currency = "USD"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -33,7 +39,7 @@ export function addMonths(monthISO: string, n: number): string {
 
 export function monthLabel(monthISO: string): string {
   const [y, m] = monthISO.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-US", {
+  return new Date(y, m - 1, 1).toLocaleDateString(LOCALE, {
     month: "long",
     year: "numeric",
   });
@@ -41,7 +47,7 @@ export function monthLabel(monthISO: string): string {
 
 export function shortDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+  return new Date(y, m - 1, d).toLocaleDateString(LOCALE, {
     month: "short",
     day: "numeric",
   });

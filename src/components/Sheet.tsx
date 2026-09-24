@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { tr } from "@/lib/i18n";
 
 export function Sheet({
   open,
@@ -41,7 +42,7 @@ export function Sheet({
           <h2 className="font-display text-lg font-semibold">{title}</h2>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tr("Close")}
             className="btn btn-ghost !rounded-full !p-2"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">

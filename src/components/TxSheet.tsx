@@ -6,6 +6,7 @@ import { Sheet } from "@/components/Sheet";
 import { FrequencyPicker } from "@/components/FrequencyPicker";
 import { todayISO } from "@/lib/format";
 import type { Account, Category, Frequency, Kind } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 export type TxDraft = {
   id?: string;
@@ -80,11 +81,11 @@ export function TxSheet({
     if (!draft) return;
     const amount = parseFloat(draft.amount);
     if (!amount || amount <= 0) {
-      setError("Enter an amount.");
+      setError(tr("Enter an amount."));
       return;
     }
     if (creatingCat && !newCat.name.trim()) {
-      setError("Give the new category a name.");
+      setError(tr("Give the new category a name."));
       return;
     }
     setBusy(true);
@@ -109,7 +110,7 @@ export function TxSheet({
         .single();
       if (catErr || !created) {
         setError(
-          "Couldn't create that category — maybe the name already exists."
+          tr("Couldn't create that category — maybe the name already exists.")
         );
         setBusy(false);
         return;
@@ -138,7 +139,7 @@ export function TxSheet({
           title:
             draft.note.trim() ||
             cats.find((c) => c.id === categoryId)?.name ||
-            (draft.kind === "income" ? "Income" : "Expense"),
+            (draft.kind === "income" ? tr("Income") : tr("Expense")),
           kind: draft.kind,
           amount,
           category_id: categoryId,
@@ -169,7 +170,7 @@ export function TxSheet({
         .delete()
         .eq("id", draft.id);
       if (delErr) {
-        setError(`Couldn't delete: ${delErr.message}`);
+        setError(tr("Couldn't delete: {v0}", { v0: delErr.message }));
         setBusy(false);
         return;
       }
@@ -185,10 +186,10 @@ export function TxSheet({
       onClose={onClose}
       title={
         draft.id
-          ? "Edit entry"
+          ? tr("Edit entry")
           : draft.kind === "income"
-            ? "Add income"
-            : "Add expense"
+            ? tr("Add income")
+            : tr("Add expense")
       }
     >
       <div className="grid gap-4">
@@ -206,13 +207,13 @@ export function TxSheet({
                 })
               }
             >
-              {k === "expense" ? "Expense" : "Income"}
+              {k === "expense" ? tr("Expense") : tr("Income")}
             </button>
           ))}
         </div>
 
         <div>
-          <label className="label">Amount</label>
+          <label className="label">{tr("Amount")}</label>
           <div className="relative">
             <span className="faint pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
               $
@@ -231,7 +232,7 @@ export function TxSheet({
         </div>
 
         <div>
-          <label className="label">Category</label>
+          <label className="label">{tr("Category")}</label>
           <select
             className="input"
             value={draft.category_id}
@@ -240,18 +241,18 @@ export function TxSheet({
             }
           >
             <CategoryOptions cats={cats} kind={draft.kind} />
-            <option value={NEW_CAT}>＋ New category…</option>
+            <option value={NEW_CAT}>{tr("＋ New category…")}</option>
           </select>
         </div>
 
         {creatingCat && (
           <div className="card-soft grid gap-3 p-4">
             <div>
-              <label className="label">Name</label>
+              <label className="label">{tr("Name")}</label>
               <input
                 className="input"
                 placeholder={
-                  draft.kind === "income" ? "e.g. Rents" : "e.g. Mercedes"
+                  draft.kind === "income" ? tr("e.g. Rents") : tr("e.g. Mercedes")
                 }
                 value={newCat.name}
                 onChange={(e) =>
@@ -260,7 +261,7 @@ export function TxSheet({
               />
             </div>
             <div>
-              <label className="label">Inside a group — optional</label>
+              <label className="label">{tr("Inside a group — optional")}</label>
               <select
                 className="input"
                 value={newCat.parent_id}
@@ -268,7 +269,7 @@ export function TxSheet({
                   setNewCat({ ...newCat, parent_id: e.target.value })
                 }
               >
-                <option value="">Top level</option>
+                <option value="">{tr("Top level")}</option>
                 {cats
                   .filter((c) => c.kind === draft.kind && !c.parent_id)
                   .map((c) => (
@@ -283,7 +284,7 @@ export function TxSheet({
 
         {accts.length > 0 && (
           <div>
-            <label className="label">Account</label>
+            <label className="label">{tr("Account")}</label>
             <select
               className="input"
               value={draft.account_id}
@@ -302,7 +303,7 @@ export function TxSheet({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Date</label>
+            <label className="label">{tr("Date")}</label>
             <input
               className="input"
               type="date"
@@ -311,10 +312,10 @@ export function TxSheet({
             />
           </div>
           <div>
-            <label className="label">Note</label>
+            <label className="label">{tr("Note")}</label>
             <input
               className="input"
-              placeholder="e.g. Costco"
+              placeholder={tr("e.g. Costco")}
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
             />
@@ -324,12 +325,12 @@ export function TxSheet({
         {!draft.id && (
           <div className="card-soft grid gap-3 p-4">
             <div>
-              <label className="label">Repeats?</label>
+              <label className="label">{tr("Repeats?")}</label>
               <FrequencyPicker value={repeat} onChange={setRepeat} allowNone />
             </div>
             {repeat !== "none" && (
               <div>
-                <label className="label">Until — optional</label>
+                <label className="label">{tr("Until — optional")}</label>
                 <input
                   className="input"
                   type="date"
@@ -348,11 +349,11 @@ export function TxSheet({
         )}
 
         <button className="btn btn-primary" onClick={save} disabled={busy}>
-          {busy ? "Saving…" : draft.id ? "Save changes" : "Add"}
+          {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Add")}
         </button>
         {draft.id && (
           <button className="btn btn-danger" onClick={remove} disabled={busy}>
-            Delete
+            {tr("Delete")}
           </button>
         )}
       </div>
@@ -373,7 +374,7 @@ function CategoryOptions({ cats, kind }: { cats: Category[]; kind: Kind }) {
     <>
       {groups.map((g) => (
         <optgroup key={g.id} label={g.name}>
-          <option value={g.id}>{g.name} — general</option>
+          <option value={g.id}>{g.name} — {tr("general")}</option>
           {pool
             .filter((c) => c.parent_id === g.id)
             .map((c) => (

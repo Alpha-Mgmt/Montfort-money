@@ -3,12 +3,13 @@
 import { useRef, useState } from "react";
 import type { MonthProjection } from "@/lib/recurring";
 import { money } from "@/lib/format";
+import { tr } from "@/lib/i18n";
 
 const M = { top: 12, right: 8, bottom: 26, left: 8 };
 
 function monthTick(monthISO: string): string {
   const [y, m] = monthISO.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short" });
+  return new Date(y, m - 1, 1).toLocaleDateString(tr("en-US"), { month: "short" });
 }
 
 /**
@@ -52,14 +53,14 @@ export function ForecastChart({ data }: { data: MonthProjection[] }) {
             className="inline-block h-2.5 w-2.5 rounded-full"
             style={{ background: "var(--chart-income)" }}
           />
-          <span className="muted">Income</span>
+          <span className="muted">{tr("Income")}</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 rounded-full"
             style={{ background: "var(--chart-expense)" }}
           />
-          <span className="muted">Expenses</span>
+          <span className="muted">{tr("Expenses")}</span>
         </span>
       </div>
 
@@ -67,7 +68,7 @@ export function ForecastChart({ data }: { data: MonthProjection[] }) {
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"
-        aria-label="Projected income and expenses for the next 12 months"
+        aria-label={tr("Projected income and expenses for the next 12 months")}
       >
         {gridVals.map((v, gi) => (
           <line
@@ -160,15 +161,16 @@ export function ForecastChart({ data }: { data: MonthProjection[] }) {
         >
           <p className="font-semibold">{monthTick(data[hover.i].month)}</p>
           <p>
-            <span style={{ color: "var(--chart-income)" }}>●</span> Income{" "}
+            <span style={{ color: "var(--chart-income)" }}>●</span>{" "}{tr("Income")}{" "}
             {money(data[hover.i].income)}
           </p>
           <p>
-            <span style={{ color: "var(--chart-expense)" }}>●</span> Expenses{" "}
+            <span style={{ color: "var(--chart-expense)" }}>●</span>{" "}{tr("Expenses")}{" "}
             {money(data[hover.i].expense)}
           </p>
           <p className="muted">
-            Net {data[hover.i].net >= 0 ? "+" : "−"}
+            {tr("Net")}{" "}
+{data[hover.i].net >= 0 ? "+" : "−"}
             {money(Math.abs(data[hover.i].net))}
           </p>
         </div>

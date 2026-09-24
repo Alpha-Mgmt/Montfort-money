@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Frequency } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 export type LineItemFreq = "none" | Frequency;
 
@@ -72,7 +73,7 @@ export function LineItemAdd({
   if (!open) {
     return (
       <button
-        aria-label="Quick add line item"
+        aria-label={tr("Quick add line item")}
         onClick={() => setOpen(true)}
         className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-semibold"
         style={{ background: "var(--mint-soft)", color: "var(--mint)" }}
@@ -117,7 +118,7 @@ export function LineItemAdd({
         disabled={busy}
         onChange={(e) => setDate(e.target.value)}
         onKeyDown={onKey}
-        aria-label="Date"
+        aria-label={tr("Date")}
       />
       <select
         className="input !w-auto !px-2 !py-1 text-sm"
@@ -127,12 +128,12 @@ export function LineItemAdd({
       >
         {freqOptions.map((o) => (
           <option key={o.v} value={o.v}>
-            {o.label}
+            {tr(o.label)}
           </option>
         ))}
       </select>
       <button
-        aria-label="Save"
+        aria-label={tr("Save")}
         onClick={submit}
         disabled={busy}
         className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold"
@@ -140,7 +141,7 @@ export function LineItemAdd({
       >
         ✓
       </button>
-      <button aria-label="Cancel" onClick={reset} className="faint px-1 text-sm">
+      <button aria-label={tr("Cancel")} onClick={reset} className="faint px-1 text-sm">
         ×
       </button>
     </div>

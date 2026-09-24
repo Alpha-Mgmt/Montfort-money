@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet } from "@/components/Sheet";
 import type { Frequency, Kind } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type LineDraft = { name: string; amount: string; freq: "once" | Frequency };
 type CatDraft = { name: string; lines: LineDraft[] };
@@ -35,7 +36,7 @@ function LineEditor({
     <div className="flex flex-wrap items-center gap-1.5">
       <input
         className="input !min-w-24 !flex-1 !px-2 !py-1 text-sm"
-        placeholder={kind === "income" ? "e.g. Salary" : "e.g. Netflix"}
+        placeholder={kind === "income" ? tr("e.g. Salary") : tr("e.g. Netflix")}
         value={line.name}
         onChange={(e) => onChange({ name: e.target.value })}
       />
@@ -61,11 +62,11 @@ function LineEditor({
       >
         {freqOptions.map((o) => (
           <option key={o.v} value={o.v}>
-            {o.label}
+            {tr(o.label)}
           </option>
         ))}
       </select>
-      <button aria-label="Remove line" className="faint px-1" onClick={onRemove}>
+      <button aria-label={tr("Remove line")} className="faint px-1" onClick={onRemove}>
         ×
       </button>
     </div>
@@ -125,7 +126,7 @@ export function CategoryQuickSheet({
 
   async function save() {
     if (!name.trim()) {
-      setError("Give it a name.");
+      setError(tr("Give it a name."));
       return;
     }
     setBusy(true);
@@ -142,7 +143,7 @@ export function CategoryQuickSheet({
       .select("id")
       .single();
     if (parentErr || !parent) {
-      setError("Couldn't create it — maybe that name already exists.");
+      setError(tr("Couldn't create it — maybe that name already exists."));
       setBusy(false);
       return;
     }
@@ -196,17 +197,17 @@ export function CategoryQuickSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={kind === "income" ? "New income category" : "New expense category"}
+      title={kind === "income" ? tr("New income category") : tr("New expense category")}
     >
       <div className="grid gap-4">
         <div>
-          <label className="label">Name</label>
+          <label className="label">{tr("Name")}</label>
           <input
             className="input"
             placeholder={
               kind === "income"
-                ? "e.g. My job, Rents, Montfort"
-                : "e.g. Housing, Vehicles, Subscriptions"
+                ? tr("e.g. My job, Rents, Montfort")
+                : tr("e.g. Housing, Vehicles, Subscriptions")
             }
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -217,7 +218,7 @@ export function CategoryQuickSheet({
         {/* line items directly under the main category */}
         {ownLines.length > 0 && (
           <div className="grid gap-1.5">
-            <p className="label !mb-0">Plan line items in {name || "it"}</p>
+            <p className="label !mb-0">{tr("Plan line items in")}{" "}{name || "it"}</p>
             {ownLines.map((l, k) => (
               <LineEditor
                 key={k}
@@ -241,7 +242,7 @@ export function CategoryQuickSheet({
             className="btn btn-ghost !px-3 !py-1 !text-xs"
             onClick={() => setOwnLines((ls) => [...ls, emptyLine()])}
           >
-            + line item
+            {tr("+ line item")}
           </button>
           {!bulk && (
             <button
@@ -251,7 +252,7 @@ export function CategoryQuickSheet({
                 setChildren([emptyCat(), emptyCat(), emptyCat()]);
               }}
             >
-              + categories inside (make it a group)
+              {tr("+ categories inside (make it a group)")}
             </button>
           )}
         </div>
@@ -264,13 +265,13 @@ export function CategoryQuickSheet({
                   <input
                     className="input !flex-1 !px-2 !py-1.5 text-sm"
                     placeholder={`Category ${i + 1} — e.g. ${
-                      kind === "income" ? "Bonus" : "Utilities"
+                      kind === "income" ? tr("Bonus") : tr("Utilities")
                     }`}
                     value={c.name}
                     onChange={(e) => setChild(i, { name: e.target.value })}
                   />
                   <button
-                    aria-label="Remove category"
+                    aria-label={tr("Remove category")}
                     className="faint px-1"
                     onClick={() =>
                       setChildren((cs) => cs.filter((_, j) => j !== i))
@@ -296,7 +297,7 @@ export function CategoryQuickSheet({
                     setChild(i, { lines: [...c.lines, emptyLine()] })
                   }
                 >
-                  + line items below
+                  {tr("+ line items below")}
                 </button>
               </div>
             ))}
@@ -304,7 +305,7 @@ export function CategoryQuickSheet({
               className="btn btn-ghost !py-1.5 !text-sm"
               onClick={() => setChildren((cs) => [...cs, emptyCat()])}
             >
-              + another category
+              {tr("+ another category")}
             </button>
           </div>
         )}
@@ -315,11 +316,10 @@ export function CategoryQuickSheet({
           </p>
         )}
         <button className="btn btn-primary" onClick={save} disabled={busy}>
-          {busy ? "Saving…" : "Save everything"}
+          {busy ? tr("Saving…") : tr("Save everything")}
         </button>
         <p className="faint text-xs">
-          Empty rows are skipped. Line items become plan amounts you fill up
-          with the ✓ as money actually moves.
+          {tr("Empty rows are skipped. Line items become plan amounts you fill up with the ✓ as money actually moves.")}
         </p>
       </div>
     </Sheet>

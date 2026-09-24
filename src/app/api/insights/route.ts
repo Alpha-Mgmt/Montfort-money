@@ -3,6 +3,20 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { buildMonthSummary } from "@/lib/insights";
 import { monthRange, monthStartISO, todayISO } from "@/lib/format";
 
+
+function aiContext(body: any): string {
+  const es = body?.lang === "es";
+  const biz = body?.space === "business";
+  return (
+    (biz
+      ? "This data is the user's BUSINESS space (their business's money, kept apart from personal money): talk about revenue, costs and profit. "
+      : "") +
+    (es
+      ? "IMPORTANT: the user reads Spanish — write every word of your answer in natural Latin-American Spanish (tú). Format money as $1,234. "
+      : "")
+  );
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -20,8 +34,10 @@ export async function POST(request: Request) {
   }
 
   let month = monthStartISO();
+  let extra = "";
   try {
     const body = await request.json();
+    extra = aiContext(body);
     if (typeof body?.month === "string" && /^\d{4}-\d{2}-01$/.test(body.month)) {
       month = body.month;
     }
@@ -131,6 +147,7 @@ export async function POST(request: Request) {
   const system =
     "You are the personal financial analyst for Montfort Money. You receive an already-computed summary of a user's month (amounts in USD). " +
     "Your job is to give them 3 to 5 clear, useful, actionable observations, in English, in a warm and direct tone. " +
+    extra +
     "Use ONLY the numbers in the summary; never make up figures. Format money as $1,234. Be specific and brief — one or two sentences per observation. " +
     "Prioritize: where they're going over plan, big payments coming up, whether their goals are on track, months that look red, and one practical recommendation. " +
     "You provide informational analysis, not licensed financial advice. " +

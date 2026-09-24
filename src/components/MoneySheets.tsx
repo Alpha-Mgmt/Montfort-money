@@ -13,6 +13,7 @@ import {
   totalInterestRemaining,
 } from "@/lib/debt";
 import type { Debt, Investment } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 // ============================== DEBTS ==============================
 
@@ -81,7 +82,7 @@ export function DebtSheet({
     if (n === null)
       return {
         bad: true,
-        text: `⚠️ ${money(payment)}/mo doesn't cover the interest — this debt would never be paid off. Raise the payment.`,
+        text: tr("⚠️ {v0}/mo doesn't cover the interest — this debt would never be paid off. Raise the payment.", { v0: money(payment) }),
       };
     const when = payoffLabel(addMonths(monthStartISO(), n));
     const interest = totalInterestRemaining({
@@ -91,7 +92,7 @@ export function DebtSheet({
     } as Debt);
     return {
       bad: false,
-      text: `Paid off in ${when} (${n} payments) · ~${money(interest ?? 0)} in interest from here`,
+      text: tr("Paid off in {v0} ({v1} payments) · ~{v2} in interest from here", { v0: when, v1: n, v2: money(interest ?? 0) }),
     };
   }, [draft]);
 
@@ -102,7 +103,7 @@ export function DebtSheet({
     const balance = parseFloat(draft.balance);
     const payment = parseFloat(draft.planned_payment);
     if (!draft.name.trim() || isNaN(balance) || !payment) {
-      setError("Name, current balance and monthly payment are required.");
+      setError(tr("Name, current balance and monthly payment are required."));
       return;
     }
     setBusy(true);
@@ -148,11 +149,11 @@ export function DebtSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={draft.id ? "Edit debt" : "Add a debt"}
+      title={draft.id ? tr("Edit debt") : tr("Add a debt")}
     >
       <div className="grid gap-4">
         <div>
-          <label className="label">What kind of debt?</label>
+          <label className="label">{tr("What kind of debt?")}</label>
           <select
             className="input"
             value={draft.debt_type}
@@ -168,17 +169,17 @@ export function DebtSheet({
           </select>
         </div>
         <div>
-          <label className="label">Name</label>
+          <label className="label">{tr("Name")}</label>
           <input
             className="input"
-            placeholder="e.g. Amex Gold, Mercedes loan"
+            placeholder={tr("e.g. Amex Gold, Mercedes loan")}
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Current balance</label>
+            <label className="label">{tr("Current balance")}</label>
             <input
               className="input"
               type="number"
@@ -191,14 +192,14 @@ export function DebtSheet({
             />
           </div>
           <div>
-            <label className="label">Original total — optional</label>
+            <label className="label">{tr("Original total — optional")}</label>
             <input
               className="input"
               type="number"
               inputMode="decimal"
               min="0"
               step="0.01"
-              placeholder="for the progress bar"
+              placeholder={tr("for the progress bar")}
               value={draft.original_amount}
               onChange={(e) =>
                 setDraft({ ...draft, original_amount: e.target.value })
@@ -208,7 +209,7 @@ export function DebtSheet({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Interest rate (APR %)</label>
+            <label className="label">{tr("Interest rate (APR %)")}</label>
             <input
               className="input"
               type="number"
@@ -222,7 +223,7 @@ export function DebtSheet({
             />
           </div>
           <div>
-            <label className="label">Monthly payment</label>
+            <label className="label">{tr("Monthly payment")}</label>
             <input
               className="input"
               type="number"
@@ -239,7 +240,7 @@ export function DebtSheet({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Payment due day — optional</label>
+            <label className="label">{tr("Payment due day — optional")}</label>
             <input
               className="input"
               type="number"
@@ -253,7 +254,7 @@ export function DebtSheet({
             />
           </div>
           <div>
-            <label className="label">Statement close day — optional</label>
+            <label className="label">{tr("Statement close day — optional")}</label>
             <input
               className="input"
               type="number"
@@ -283,11 +284,11 @@ export function DebtSheet({
           </p>
         )}
         <button className="btn btn-primary" onClick={save} disabled={busy}>
-          {busy ? "Saving…" : draft.id ? "Save changes" : "Add debt"}
+          {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Add debt")}
         </button>
         {draft.id && (
           <button className="btn btn-danger" onClick={archive} disabled={busy}>
-            Archive debt
+            {tr("Archive debt")}
           </button>
         )}
       </div>
@@ -352,7 +353,7 @@ export function InvestmentSheet({
     const now = new Date();
     const monthsToDec = 11 - now.getMonth() + 1; // to end of December
     const fv = projectInvestment(balance, apr, 0, monthsToDec);
-    return `At ${apr}%/yr, ~${money(fv)} by end of December (before new contributions).`;
+    return tr("At {v0}%/yr, ~{v1} by end of December (before new contributions).", { v0: apr, v1: money(fv) });
   }, [draft]);
 
   if (!draft) return null;
@@ -361,7 +362,7 @@ export function InvestmentSheet({
     if (!draft) return;
     const balance = parseFloat(draft.balance || "0");
     if (!draft.name.trim() || isNaN(balance)) {
-      setError("Name and current balance are required.");
+      setError(tr("Name and current balance are required."));
       return;
     }
     setBusy(true);
@@ -407,11 +408,11 @@ export function InvestmentSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={draft.id ? "Edit investment" : "Add an investment"}
+      title={draft.id ? tr("Edit investment") : tr("Add an investment")}
     >
       <div className="grid gap-4">
         <div>
-          <label className="label">Type</label>
+          <label className="label">{tr("Type")}</label>
           <select
             className="input"
             value={draft.inv_type}
@@ -429,17 +430,17 @@ export function InvestmentSheet({
           </select>
         </div>
         <div>
-          <label className="label">Name</label>
+          <label className="label">{tr("Name")}</label>
           <input
             className="input"
-            placeholder="e.g. Fidelity brokerage, House fund"
+            placeholder={tr("e.g. Fidelity brokerage, House fund")}
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Current balance</label>
+            <label className="label">{tr("Current balance")}</label>
             <input
               className="input"
               type="number"
@@ -452,7 +453,7 @@ export function InvestmentSheet({
             />
           </div>
           <div>
-            <label className="label">Expected return %/yr</label>
+            <label className="label">{tr("Expected return %/yr")}</label>
             <input
               className="input"
               type="number"
@@ -470,7 +471,7 @@ export function InvestmentSheet({
 
         <div className="card-soft grid gap-3 p-4">
           <div>
-            <label className="label">Monthly movement</label>
+            <label className="label">{tr("Monthly movement")}</label>
             <select
               className="input"
               value={draft.monthly_flow}
@@ -478,15 +479,15 @@ export function InvestmentSheet({
                 setDraft({ ...draft, monthly_flow: e.target.value as any })
               }
             >
-              <option value="none">Nothing regular</option>
-              <option value="deposit">I put money IN every month</option>
-              <option value="withdraw">I take money OUT every month</option>
+              <option value="none">{tr("Nothing regular")}</option>
+              <option value="deposit">{tr("I put money IN every month")}</option>
+              <option value="withdraw">{tr("I take money OUT every month")}</option>
             </select>
           </div>
           {draft.monthly_flow !== "none" && (
             <div>
               <label className="label">
-                How much per month?
+                {tr("How much per month?")}
               </label>
               <div className="relative">
                 <span className="faint pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
@@ -507,8 +508,8 @@ export function InvestmentSheet({
               </div>
               <p className="faint mt-1 text-xs">
                 {draft.monthly_flow === "deposit"
-                  ? "Counts in your monthly expense plan. Log each deposit with the + on the card."
-                  : "Counts in your monthly income plan. Log each withdrawal with the − on the card."}
+                  ? tr("Counts in your monthly expense plan. Log each deposit with the + on the card.")
+                  : tr("Counts in your monthly income plan. Log each withdrawal with the − on the card.")}
               </p>
             </div>
           )}
@@ -522,11 +523,11 @@ export function InvestmentSheet({
           </p>
         )}
         <button className="btn btn-primary" onClick={save} disabled={busy}>
-          {busy ? "Saving…" : draft.id ? "Save changes" : "Add investment"}
+          {busy ? tr("Saving…") : draft.id ? tr("Save changes") : tr("Add investment")}
         </button>
         {draft.id && (
           <button className="btn btn-danger" onClick={archive} disabled={busy}>
-            Archive
+            {tr("Archive")}
           </button>
         )}
       </div>

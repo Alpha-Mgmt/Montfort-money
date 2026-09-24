@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tr } from "@/lib/i18n";
 
 /**
  * The "palomita": a check button prefilled with the planned amount.
@@ -72,7 +73,7 @@ export function ConfirmPay({
         />
       </span>
       <button
-        aria-label="Confirm"
+        aria-label={tr("Confirm")}
         onClick={submit}
         disabled={busy}
         className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold"
@@ -81,7 +82,7 @@ export function ConfirmPay({
         ✓
       </button>
       <button
-        aria-label="Cancel"
+        aria-label={tr("Cancel")}
         onClick={() => setOpen(false)}
         className="faint px-1 text-sm"
       >

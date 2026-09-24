@@ -1,5 +1,5 @@
 import type { Debt, Investment } from "@/lib/types";
-import { addMonths, monthStartISO } from "@/lib/format";
+import { monthLabel, addMonths, monthStartISO } from "@/lib/format";
 
 /**
  * Months until a debt is paid off with a fixed monthly payment.
@@ -29,11 +29,7 @@ export function payoffMonth(debt: Debt): string | null {
 
 export function payoffLabel(monthISO: string | null): string {
   if (monthISO === null) return "never at this payment";
-  const [y, m] = monthISO.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  return monthLabel(monthISO); // follows the app language
 }
 
 /** Total interest you'll pay from here to payoff (approx). */

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { monthLabel } from "@/lib/format";
+import { tr } from "@/lib/i18n";
 
 const monthNames = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -66,7 +67,7 @@ export function MonthPicker({
             <button
               className="btn btn-ghost !px-2.5 !py-1"
               onClick={() => setYear(year - 1)}
-              aria-label="Previous year"
+              aria-label={tr("Previous year")}
             >
               ‹
             </button>
@@ -74,7 +75,7 @@ export function MonthPicker({
             <button
               className="btn btn-ghost !px-2.5 !py-1"
               onClick={() => setYear(year + 1)}
-              aria-label="Next year"
+              aria-label={tr("Next year")}
             >
               ›
             </button>
@@ -98,7 +99,7 @@ export function MonthPicker({
                     setOpen(false);
                   }}
                 >
-                  {m}
+                  {new Date(2000, i, 1).toLocaleDateString(tr("en-US"), { month: "short" })}
                 </button>
               );
             })}

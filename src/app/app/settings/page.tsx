@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { buildCategoryTree, fetchAccounts, fetchCategories } from "@/lib/data";
 import { Sheet } from "@/components/Sheet";
+import { BankConnections } from "@/components/BankConnections";
+import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
+import { toolItems } from "@/components/nav-items";
 import type { Account, Category, Kind } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 const accountTypes: Account["type"][] = [
   "cash",
@@ -195,7 +199,7 @@ export default function SettingsPage() {
     const supabase = createClient();
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) {
-      setResetMsg(`Couldn't delete that category: ${error.message}`);
+      setResetMsg(tr("Couldn't delete that category: {v0}", { v0: error.message }));
       return;
     }
     load();
@@ -228,7 +232,7 @@ export default function SettingsPage() {
       .eq("user_id", user!.id)
       .eq("month", from);
     setBusy(false);
-    setResetMsg(`Cleared ${resetMonth} — transactions and plans for that month are gone.`);
+    setResetMsg(tr("Cleared {v0} — transactions and plans for that month are gone.", { v0: resetMonth }));
   }
 
   async function resetEverything() {
@@ -257,34 +261,75 @@ export default function SettingsPage() {
       await supabase.from(t).delete().eq("user_id", uid);
     }
     setBusy(false);
-    setResetMsg("Everything wiped — categories and accounts kept. Fresh start.");
+    setResetMsg(tr("Everything wiped — categories and accounts kept. Fresh start."));
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <h1 className="font-display text-2xl font-semibold lg:col-span-2">
-        More
+        {tr("More")}
       </h1>
+
+      {/* Tools — on phones this is how you reach them */}
+      <div className="card p-6 lg:col-span-2 lg:hidden">
+        <p className="faint text-xs font-semibold uppercase tracking-wide">
+          {tr("Tools")}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {toolItems.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="card-soft flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-medium"
+            >
+              <span className="h-5 w-5 shrink-0 [&>svg]:h-full [&>svg]:w-full" style={{ color: "var(--mint)" }}>
+                {n.icon}
+              </span>
+              {tr(n.label)}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Space + language */}
+      <div className="card p-6">
+        <p className="faint text-xs font-semibold uppercase tracking-wide">
+          {tr("Space")}
+        </p>
+        <p className="muted mt-1 text-sm">
+          {tr("Keep your business money apart from your personal money. Each space has its own plan, categories and history.")}
+        </p>
+        <div className="mt-3 max-w-xs">
+          <SpaceSwitcher />
+        </div>
+        <div className="divider my-4" />
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{tr("Language")}</span>
+          <LangToggle />
+        </div>
+      </div>
+
+      <BankConnections />
 
       {/* Profile */}
       <div className="card p-6">
         <p className="faint text-xs font-semibold uppercase tracking-wide">
-          Account
+          {tr("Account")}
         </p>
         <p className="mt-2 font-medium">{name || "—"}</p>
         <p className="muted text-sm">{email}</p>
         <button className="btn btn-ghost mt-4" onClick={signOut}>
-          Sign out
+          {tr("Sign out")}
         </button>
       </div>
 
       {/* Home sections */}
       <div className="card p-6">
         <p className="faint text-xs font-semibold uppercase tracking-wide">
-          Home sections
+          {tr("Home sections")}
         </p>
         <p className="muted mt-1 text-sm">
-          Hide what you don't use — bring it back anytime.
+          {tr("Hide what you don't use — bring it back anytime.")}
         </p>
         <div className="mt-3 grid gap-2">
           {(
@@ -294,11 +339,11 @@ export default function SettingsPage() {
             ] as const
           ).map(([label, field, value]) => (
             <div key={field} className="flex items-center justify-between">
-              <span className="text-sm font-medium">{label}</span>
+              <span className="text-sm font-medium">{tr(label)}</span>
               <button
                 role="switch"
                 aria-checked={value}
-                aria-label={`Toggle ${label}`}
+                aria-label={tr("Toggle {v0}", { v0: label })}
                 onClick={() => toggleSection(field, !value)}
                 className="relative h-6 w-11 rounded-full transition-colors"
                 style={{
@@ -326,21 +371,20 @@ export default function SettingsPage() {
           className="text-xs font-semibold uppercase tracking-wide"
           style={{ color: "var(--over)" }}
         >
-          Danger zone
+          {tr("Danger zone")}
         </p>
 
         <div className="mt-3">
-          <p className="text-sm font-medium">Reset everything</p>
+          <p className="text-sm font-medium">{tr("Reset everything")}</p>
           <p className="muted mt-0.5 text-sm">
-            Wipes all transactions, plans, debts, investments, goals and tasks.
-            Your categories, accounts and login stay. This can't be undone.
+            {tr("Wipes all transactions, plans, debts, investments, goals and tasks. Your categories, accounts and login stay. This can't be undone.")}
           </p>
           <button
             className={`btn mt-2 ${armAll ? "btn-danger" : "btn-ghost"}`}
             onClick={resetEverything}
             disabled={busy}
           >
-            {armAll ? "Tap again to wipe it all" : "Reset everything"}
+            {armAll ? tr("Tap again to wipe it all") : tr("Reset everything")}
           </button>
         </div>
 
@@ -354,21 +398,20 @@ export default function SettingsPage() {
       {/* Feedback */}
       <div className="card p-6">
         <p className="faint text-xs font-semibold uppercase tracking-wide">
-          Suggestions
+          {tr("Suggestions")}
         </p>
         <p className="muted mt-1 text-sm">
-          We&apos;re building Montfort Money with you — this is the moment your
-          ideas shape it most. What would make it better?
+          {tr("We're building Montfort Money with you — this is the moment your ideas shape it most. What would make it better?")}
         </p>
         {fbSent ? (
           <p className="mt-3 text-sm" style={{ color: "var(--mint)" }}>
-            Got it — thank you. Tell us more anytime.
+            {tr("Got it — thank you. Tell us more anytime.")}
           </p>
         ) : (
           <div className="mt-3 grid gap-2">
             <textarea
               className="input min-h-20"
-              placeholder="A feature you want, something confusing, anything…"
+              placeholder={tr("A feature you want, something confusing, anything…")}
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
             />
@@ -377,7 +420,7 @@ export default function SettingsPage() {
               onClick={sendFeedback}
               disabled={busy || !feedback.trim()}
             >
-              {busy ? "Sending…" : "Send suggestion"}
+              {busy ? tr("Sending…") : tr("Send suggestion")}
             </button>
           </div>
         )}
@@ -386,23 +429,21 @@ export default function SettingsPage() {
       {/* About */}
       <div className="card p-6">
         <p className="faint text-xs font-semibold uppercase tracking-wide">
-          About
+          {tr("About")}
         </p>
         <p className="muted mt-2 text-sm leading-relaxed">
-          Montfort Money · early access. Tip: on iPhone, open this site in
-          Safari and use Share → “Add to Home Screen” to install it like an
-          app.
+          {tr("Montfort Money · early access. Tip: on iPhone, open this site in Safari and use Share → “Add to Home Screen” to install it like an app.")}
         </p>
         <div className="faint mt-3 flex gap-4 text-sm">
           <Link href="/privacy" className="hover:underline">
-            Privacy
+            {tr("Privacy")}
           </Link>
           <Link href="/terms" className="hover:underline">
-            Terms
+            {tr("Terms")}
           </Link>
         </div>
         <button className="btn btn-ghost mt-4" onClick={replaySetup}>
-          Replay setup
+          {tr("Replay setup")}
         </button>
       </div>
 
@@ -410,15 +451,15 @@ export default function SettingsPage() {
       <Sheet
         open={acctOpen}
         onClose={() => setAcctOpen(false)}
-        title={acctDraft?.id ? "Edit account" : "Add account"}
+        title={acctDraft?.id ? tr("Edit account") : tr("Add account")}
       >
         {acctDraft && (
           <div className="grid gap-4">
             <div>
-              <label className="label">Name</label>
+              <label className="label">{tr("Name")}</label>
               <input
                 className="input"
-                placeholder="e.g. Chase checking"
+                placeholder={tr("e.g. Chase checking")}
                 value={acctDraft.name}
                 onChange={(e) =>
                   setAcctDraft({ ...acctDraft, name: e.target.value })
@@ -426,7 +467,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="label">Type</label>
+              <label className="label">{tr("Type")}</label>
               <select
                 className="input"
                 value={acctDraft.type}
@@ -439,7 +480,7 @@ export default function SettingsPage() {
               >
                 {accountTypes.map((t) => (
                   <option key={t} value={t}>
-                    {t[0].toUpperCase() + t.slice(1)}
+                    {tr(t[0].toUpperCase() + t.slice(1))}
                   </option>
                 ))}
               </select>
@@ -447,7 +488,7 @@ export default function SettingsPage() {
             {(acctDraft.type === "credit" || acctDraft.type === "loan") && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Payment due day (1-31)</label>
+                  <label className="label">{tr("Payment due day (1-31)")}</label>
                   <input
                     className="input"
                     type="number"
@@ -464,7 +505,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="label">Statement close day</label>
+                  <label className="label">{tr("Statement close day")}</label>
                   <input
                     className="input"
                     type="number"
@@ -487,7 +528,7 @@ export default function SettingsPage() {
               onClick={saveAccount}
               disabled={busy}
             >
-              {busy ? "Saving…" : "Save"}
+              {busy ? tr("Saving…") : tr("Save")}
             </button>
             {acctDraft.id && (
               <button
@@ -495,7 +536,7 @@ export default function SettingsPage() {
                 onClick={archiveAccount}
                 disabled={busy}
               >
-                Archive account
+                {tr("Archive account")}
               </button>
             )}
           </div>

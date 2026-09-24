@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tr } from "@/lib/i18n";
 
 export function ThemeToggle() {
   const [light, setLight] = useState(false);
@@ -21,7 +22,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      aria-label="Toggle theme"
+      aria-label={tr("Toggle theme")}
       className="btn-ghost btn !p-2 !rounded-full"
     >
       {light ? (
