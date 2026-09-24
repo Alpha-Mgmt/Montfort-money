@@ -39,7 +39,13 @@ export async function updateSession(request: NextRequest) {
   if (isAppRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    // couple invite opened while signed out: remember it for after sign-in
+    const join = request.nextUrl.searchParams.get("code");
+    if (path === "/app/join" && join && /^[A-Za-z0-9]{6,12}$/.test(join)) {
+      res.cookies.set("mf-join", join.toUpperCase(), { path: "/", maxAge: 60 * 60 * 24 * 14, sameSite: "lax" });
+    }
+    return res;
   }
 
   if (isAuthRoute && user) {

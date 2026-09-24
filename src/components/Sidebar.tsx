@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
-import { navItems, toolItems, isActive } from "@/components/nav-items";
-import { useT } from "@/lib/i18n";
+import { navItems, visibleTools, isActive } from "@/components/nav-items";
+import { useApp } from "@/lib/i18n";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const t = useT();
+  const { t, features, household } = useApp();
   return (
     <aside className="sidebar">
       <Link href="/app">
@@ -33,7 +33,7 @@ export function Sidebar() {
         <p className="faint mt-4 px-3 text-[11px] font-semibold uppercase tracking-wide">
           {t("Tools")}
         </p>
-        {toolItems.map((n) => (
+        {visibleTools(features, !!household).map((n) => (
           <Link
             key={n.href}
             href={n.href}

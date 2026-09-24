@@ -7,7 +7,11 @@ import { monthRange, monthStartISO, todayISO } from "@/lib/format";
 function aiContext(body: any): string {
   const es = body?.lang === "es";
   const biz = body?.space === "business";
+  const couple = body?.space === "shared";
   return (
+    (couple
+      ? "This data is the COUPLE space the user shares with their partner (household money both of them manage): speak to them as a household. "
+      : "") +
     (biz
       ? "This data is the user's BUSINESS space (their business's money, kept apart from personal money): talk about revenue, costs and profit. "
       : "") +

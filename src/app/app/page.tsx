@@ -1375,7 +1375,14 @@ export default function MonthPage() {
             {showDebts && (
             <div className="card p-6">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">{tr("Debts")}</h2>
+                <h2 className="font-display text-lg font-semibold">
+                  {tr("Debts")}
+                  {totalDebt > 0 && (
+                    <a href="/app/debts" className="muted ml-2 text-xs font-normal underline-offset-4 hover:underline">
+                      {tr("Payoff plan →")}
+                    </a>
+                  )}
+                </h2>
                 <div className="flex items-center gap-3">
                   {totalDebt > 0 && (
                     <span

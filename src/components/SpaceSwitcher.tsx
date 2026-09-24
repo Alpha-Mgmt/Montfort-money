@@ -5,7 +5,7 @@ import { useApp, type Space } from "@/lib/i18n";
 
 /** Personal | Business segmented control. Switching reloads every screen. */
 export function SpaceSwitcher({ compact = false }: { compact?: boolean }) {
-  const { space, switchSpace, t, ready } = useApp();
+  const { space, switchSpace, t, ready, features, household } = useApp();
   const [busy, setBusy] = useState<Space | null>(null);
 
   async function go(s: Space) {
@@ -15,17 +15,23 @@ export function SpaceSwitcher({ compact = false }: { compact?: boolean }) {
     setBusy(null);
   }
 
-  const opts: [Space, string][] = [
-    ["personal", t("Personal")],
-    ["business", t("Business")],
-  ];
+  const opts: [Space, string][] = [["personal", t("Personal")]];
+  if (features.business || space === "business") opts.push(["business", t("Business")]);
+  if (household || space === "shared") opts.push(["shared", t("Couple")]);
+  // only one space → nothing to switch
+  if (opts.length < 2) return null;
 
   return (
     <div
       role="tablist"
       aria-label={t("Space")}
-      className={`grid grid-cols-2 rounded-full p-1 ${compact ? "text-xs" : "text-sm"}`}
-      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", opacity: ready ? 1 : 0.6 }}
+      className={`grid rounded-full p-1 ${compact ? "text-xs" : "text-sm"}`}
+      style={{
+        gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))`,
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
+        opacity: ready ? 1 : 0.6,
+      }}
     >
       {opts.map(([key, label]) => {
         const on = space === key;
@@ -35,7 +41,9 @@ export function SpaceSwitcher({ compact = false }: { compact?: boolean }) {
             role="tab"
             aria-selected={on}
             onClick={() => go(key)}
-            className={`rounded-full font-semibold transition-colors ${compact ? "px-3 py-1" : "px-4 py-1.5"}`}
+            className={`whitespace-nowrap rounded-full font-semibold transition-colors ${
+              compact ? (opts.length > 2 ? "px-1.5 py-1 text-[11px]" : "px-2.5 py-1") : "px-4 py-1.5"
+            }`}
             style={{
               background: on ? "var(--mint)" : "transparent",
               color: on ? "#06130d" : "var(--text-soft)",

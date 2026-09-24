@@ -56,6 +56,16 @@ export const toolItems = [
     ),
   },
   {
+    href: "/app/debts",
+    label: "Debt payoff",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4v16h16" />
+        <path d="M7 8l4 4 3-3 5 7" />
+      </svg>
+    ),
+  },
+  {
     href: "/app/business",
     label: "Business tools",
     icon: (
@@ -76,6 +86,18 @@ export const toolItems = [
     ),
   },
   {
+    href: "/app/couple",
+    label: "Couple",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.5" />
+        <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        <path d="M15 14.5c.6-.3 1.3-.5 2-.5 2.5 0 4.5 2 4.5 4.5" />
+      </svg>
+    ),
+  },
+  {
     href: "/app/subscriptions",
     label: "Subscriptions",
     icon: (
@@ -86,6 +108,16 @@ export const toolItems = [
     ),
   },
 ];
+
+/** Tools the user has turned on. */
+export function visibleTools(f: { business: boolean; remit: boolean }, hasHousehold: boolean) {
+  return toolItems.filter((n) => {
+    if (n.href === "/app/business") return f.business;
+    if (n.href === "/app/remittances") return f.remit;
+    if (n.href === "/app/overview") return f.business || hasHousehold;
+    return true;
+  });
+}
 
 export function isActive(href: string, pathname: string) {
   return href === "/app" ? pathname === "/app" : pathname.startsWith(href);

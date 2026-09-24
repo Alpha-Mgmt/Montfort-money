@@ -29,7 +29,7 @@ const EMPTY: Row = {
 };
 
 export default function OverviewPage() {
-  const { t, space, switchSpace } = useApp();
+  const { t, space, switchSpace, features, household } = useApp();
   const [month, setMonth] = useState(monthStartISO());
   const [rows, setRows] = useState<Record<Space, Row> | null>(null);
   const [err, setErr] = useState(false);
@@ -47,6 +47,7 @@ export default function OverviewPage() {
         const out: Record<Space, Row> = {
           personal: { ...EMPTY, space: "personal" },
           business: { ...EMPTY, space: "business" },
+          shared: { ...EMPTY, space: "shared" },
         };
         for (const r of (data ?? []) as any[]) {
           const s = r.space as Space;
@@ -66,7 +67,12 @@ export default function OverviewPage() {
   }, [month]);
 
   const p = rows?.personal ?? EMPTY;
-  const b = rows?.business ?? EMPTY;
+  const b = rows?.business ?? { ...EMPTY, space: "business" as Space };
+  const sh = rows?.shared ?? { ...EMPTY, space: "shared" as Space };
+  const shown: Row[] = [p];
+  if (features.business || b.income || b.expense) shown.push(b);
+  if (household) shown.push(sh);
+  const sum = (f: (r: Row) => number) => shown.reduce((a, r) => a + f(r), 0);
   const net = (r: Row) => r.income - r.expense;
   const ytdNet = (r: Row) => r.ytd_income - r.ytd_expense;
   const worth = (r: Row) => r.investments + r.goals_saved - r.debts;
@@ -77,7 +83,7 @@ export default function OverviewPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold">{t("All together")}</h1>
           <p className="muted text-sm">
-            {t("Personal and business side by side — the full picture of your money.")}
+            {t("All your spaces side by side — the full picture of your money.")}
           </p>
         </div>
         <MonthPicker value={month} onChange={setMonth} />
@@ -91,17 +97,17 @@ export default function OverviewPage() {
 
       {/* combined headline */}
       <div className="card glow-mint grid gap-4 p-6 sm:grid-cols-3">
-        <Stat label={t("Net this month")} value={net(p) + net(b)} signed loading={!rows} />
-        <Stat label={t("Net this year")} value={ytdNet(p) + ytdNet(b)} signed loading={!rows} />
-        <Stat label={t("Net worth (tracked)")} value={worth(p) + worth(b)} signed loading={!rows} />
+        <Stat label={t("Net this month")} value={sum(net)} signed loading={!rows} />
+        <Stat label={t("Net this year")} value={sum(ytdNet)} signed loading={!rows} />
+        <Stat label={t("Net worth (tracked)")} value={sum(worth)} signed loading={!rows} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {([p, b] as Row[]).map((r) => (
+      <div className={`grid gap-4 ${shown.length > 2 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        {shown.map((r) => (
           <div key={r.space} className="card p-6">
             <div className="flex items-center justify-between">
               <p className="faint text-xs font-semibold uppercase tracking-wide">
-                {r.space === "personal" ? t("Personal") : t("Business")}
+                {r.space === "personal" ? t("Personal") : r.space === "business" ? t("Business") : t("Couple")}
               </p>
               {space !== r.space && (
                 <button className="btn btn-ghost !px-3 !py-0.5 text-xs" onClick={() => switchSpace(r.space)}>

@@ -8,7 +8,8 @@ import { buildCategoryTree, fetchAccounts, fetchCategories } from "@/lib/data";
 import { Sheet } from "@/components/Sheet";
 import { BankConnections } from "@/components/BankConnections";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
-import { toolItems } from "@/components/nav-items";
+import { visibleTools } from "@/components/nav-items";
+import { useApp } from "@/lib/i18n";
 import type { Account, Category, Kind } from "@/lib/types";
 import { tr } from "@/lib/i18n";
 
@@ -23,6 +24,7 @@ const accountTypes: Account["type"][] = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { features, setFeature, household } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [accts, setAccts] = useState<Account[]>([]);
@@ -276,7 +278,7 @@ export default function SettingsPage() {
           {tr("Tools")}
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          {toolItems.map((n) => (
+          {visibleTools(features, !!household).map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -288,6 +290,58 @@ export default function SettingsPage() {
               {tr(n.label)}
             </Link>
           ))}
+        </div>
+      </div>
+
+      {/* Optional features */}
+      <div className="card p-6">
+        <p className="faint text-xs font-semibold uppercase tracking-wide">
+          {tr("Features")}
+        </p>
+        <p className="muted mt-1 text-sm">
+          {tr("Turn on only what you use.")}
+        </p>
+        <div className="mt-3 grid gap-3">
+          {(
+            [
+              ["business", tr("Business"), tr("A separate space for your business: P&L, invoices, cash flow, receipts and taxes.")],
+              ["remit", tr("Remittances"), tr("Track money you send abroad and compare providers.")],
+            ] as const
+          ).map(([key, label, hint]) => {
+            const on = features[key];
+            return (
+              <div key={key} className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="faint text-xs">{hint}</p>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={on}
+                  aria-label={label}
+                  onClick={() => setFeature(key, !on)}
+                  className="relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors"
+                  style={{ background: on ? "var(--mint)" : "var(--surface-2)" }}
+                >
+                  <span
+                    className="absolute top-0.5 h-5 w-5 rounded-full transition-all"
+                    style={{ left: on ? "1.4rem" : "0.15rem", background: on ? "#06130d" : "var(--text-faint)" }}
+                  />
+                </button>
+              </div>
+            );
+          })}
+          <Link href="/app/couple" className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{tr("Couple")}</p>
+              <p className="faint text-xs">
+                {household
+                  ? tr("Shared with {names}.", { names: household.members.filter((m) => !m.is_me).map((m) => m.full_name).join(", ") || tr("no one yet") })
+                  : tr("Invite your partner to a shared space. Your personal money stays private.")}
+              </p>
+            </div>
+            <span className="muted text-sm">→</span>
+          </Link>
         </div>
       </div>
 

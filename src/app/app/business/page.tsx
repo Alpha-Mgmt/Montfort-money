@@ -7,6 +7,12 @@ import { buildPnl, estimateQuarterlyTax } from "@/lib/business";
 import { money, shortDate, todayISO } from "@/lib/format";
 import { useApp } from "@/lib/i18n";
 import type { Category, Transaction } from "@/lib/types";
+import { Invoices } from "@/components/biz/Invoices";
+import { CashFlow } from "@/components/biz/CashFlow";
+import { Counterparties } from "@/components/biz/Counterparties";
+import { Receipts } from "@/components/biz/Receipts";
+
+type Tab = "summary" | "invoices" | "cash" | "people" | "receipts";
 
 type Period = "month" | "quarter" | "ytd" | "lastyear";
 
@@ -24,10 +30,22 @@ function periodRange(p: Period, today: string): { from: string; to: string } {
 }
 
 export default function BusinessPage() {
-  const { t, lang, space, switchSpace, businessName, taxRate, ready } = useApp();
+  const { t, lang, space, switchSpace, businessName, taxRate, ready, features, setFeature } = useApp();
   const today = todayISO();
   const year = Number(today.slice(0, 4));
   const [period, setPeriod] = useState<Period>("month");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "summary";
+    const q = new URLSearchParams(window.location.search).get("tab");
+    return (["summary", "invoices", "cash", "people", "receipts"].includes(q ?? "") ? q : "summary") as Tab;
+  });
+  const tabs: [Tab, string][] = [
+    ["summary", t("Summary")],
+    ["invoices", t("Invoices")],
+    ["cash", t("Cash flow")],
+    ["people", t("Clients & vendors")],
+    ["receipts", t("Receipts")],
+  ];
   const [cats, setCats] = useState<Category[]>([]);
   const [yearTxs, setYearTxs] = useState<Transaction[]>([]);
   const [lastYearTxs, setLastYearTxs] = useState<Transaction[] | null>(null);
@@ -142,7 +160,7 @@ export default function BusinessPage() {
         </label>
         <label className="grid gap-1">
           <span className="label">{t("Date")}</span>
-          <input className="input" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+          <input className="input w-full min-w-0" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
         </label>
       </div>
       <button className="btn btn-primary mt-4 w-full" disabled={paying || !payAmt} onClick={payOwner}>
@@ -172,8 +190,14 @@ export default function BusinessPage() {
           <p className="muted mt-2 text-sm">
             {t("Switch to Business and the whole app — plan, recurring, goals, AI — works for your business, kept apart from your personal money.")}
           </p>
-          <button className="btn btn-primary mt-4" onClick={() => switchSpace("business")}>
-            {t("Switch to Business")}
+          <button
+            className="btn btn-primary mt-4"
+            onClick={async () => {
+              if (!features.business) await setFeature("business", true);
+              await switchSpace("business");
+            }}
+          >
+            {features.business ? t("Switch to Business") : t("Turn on Business")}
           </button>
         </div>
         {payCard}
@@ -190,6 +214,7 @@ export default function BusinessPage() {
           </h1>
           <p className="muted text-sm">{t("Profit & loss, quarterly taxes and paying yourself.")}</p>
         </div>
+        {tab === "summary" && (
         <div className="flex flex-wrap gap-1.5">
           {periods.map(([k, label]) => (
             <button
@@ -206,8 +231,40 @@ export default function BusinessPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
+      {/* sections */}
+      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:col-span-3">
+        {tabs.map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => {
+              setTab(k);
+              try {
+                const u = new URL(window.location.href);
+                u.searchParams.set("tab", k);
+                window.history.replaceState(null, "", u.toString());
+              } catch {}
+            }}
+            className="btn whitespace-nowrap !px-4 !py-1.5 text-sm"
+            style={
+              tab === k
+                ? { background: "var(--mint)", color: "#06130d" }
+                : { background: "var(--surface-2)", color: "var(--text-soft)" }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "invoices" && <div className="lg:col-span-3"><Invoices /></div>}
+      {tab === "cash" && <div className="lg:col-span-3"><CashFlow quarters={quarters} /></div>}
+      {tab === "people" && <div className="lg:col-span-3"><Counterparties /></div>}
+      {tab === "receipts" && <div className="lg:col-span-3"><Receipts /></div>}
+
+      {tab === "summary" && (<>
       {/* P&L */}
       <div className="card p-6 lg:col-span-2">
         <p className="faint text-xs font-semibold uppercase tracking-wide">{t("Profit & loss")}</p>
@@ -296,6 +353,7 @@ export default function BusinessPage() {
         </button>
         {savedMsg && <p className="muted mt-2 text-sm">{savedMsg}</p>}
       </div>
+      </>)}
     </div>
   );
 }

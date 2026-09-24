@@ -14,7 +14,10 @@ import { setFormatLocale } from "@/lib/format";
 import { es } from "@/lib/dict-es";
 
 export type Lang = "en" | "es";
-export type Space = "personal" | "business";
+export type Space = "personal" | "business" | "shared";
+export type Features = { business: boolean; remit: boolean };
+export type HouseholdMember = { user_id: string; full_name: string; role: string; is_me: boolean };
+export type Household = { id: string; name: string; members: HouseholdMember[] };
 
 type Vars = Record<string, string | number>;
 
@@ -46,6 +49,10 @@ type Ctx = {
   businessName: string | null;
   taxRate: number;
   ready: boolean;
+  features: Features;
+  setFeature: (f: keyof Features, on: boolean) => Promise<void>;
+  household: Household | null;
+  refreshHousehold: () => Promise<void>;
 };
 
 const AppCtx = createContext<Ctx>({
@@ -57,6 +64,10 @@ const AppCtx = createContext<Ctx>({
   businessName: null,
   taxRate: 25,
   ready: false,
+  features: { business: false, remit: false },
+  setFeature: async () => {},
+  household: null,
+  refreshHousehold: async () => {},
 });
 
 function initialLang(): Lang {
@@ -76,6 +87,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [taxRate, setTaxRate] = useState(25);
   const [ready, setReady] = useState(false);
   const [langReady, setLangReady] = useState(false);
+  const [features, setFeatures] = useState<Features>({ business: false, remit: false });
+  const [household, setHousehold] = useState<Household | null>(null);
+
+  const refreshHousehold = useCallback(async () => {
+    const { data, error } = await createClient().rpc("my_household_info");
+    if (error || !data || !(data as any[]).length) {
+      setHousehold(null);
+      return;
+    }
+    const rows = data as any[];
+    setHousehold({
+      id: rows[0].household_id,
+      name: rows[0].household_name,
+      members: rows.map((r) => ({ user_id: r.user_id, full_name: r.full_name, role: r.role, is_me: r.is_me })),
+    });
+  }, []);
+
+  const setFeature = useCallback(async (f: keyof Features, on: boolean) => {
+    setFeatures((cur) => ({ ...cur, [f]: on }));
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from("profiles")
+      .update(f === "business" ? { feature_business: on } : { feature_remit: on })
+      .eq("id", user.id);
+    // turning Business off while inside it: go back to Personal
+    if (f === "business" && !on && space === "business") {
+      await supabase.rpc("set_space", { p_space: "personal" });
+      window.location.reload();
+    }
+  }, [space]);
 
   const applyLang = useCallback((l: Lang) => {
     LANG = l;
@@ -90,11 +135,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     supabase
       .from("profiles")
-      .select("active_space,lang,business_name,tax_rate")
+      .select("active_space,lang,business_name,tax_rate,feature_business,feature_remit")
       .single()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data) {
-          if (data.active_space === "business") setSpace("business");
+          if (data.active_space === "business" || data.active_space === "shared") setSpace(data.active_space);
+          setFeatures({ business: !!data.feature_business, remit: !!data.feature_remit });
           setBusinessName(data.business_name ?? null);
           if (data.tax_rate != null) setTaxRate(Number(data.tax_rate));
           // a language saved on the account wins over the browser guess
@@ -105,9 +151,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             try { localStorage.setItem("mf-lang", data.lang); } catch {}
           }
         }
+        await refreshHousehold();
         setReady(true);
       });
-  }, [applyLang]);
+    // an invite link opened before signing in: pick it up now
+    try {
+      const m = document.cookie.match(/(?:^|; )mf-join=([A-Z0-9]+)/);
+      if (m && !window.location.pathname.startsWith("/app/join")) {
+        document.cookie = "mf-join=; path=/; max-age=0";
+        window.location.href = `/app/join?code=${m[1]}`;
+      }
+    } catch {}
+  }, [applyLang, refreshHousehold]);
 
   const setLang = useCallback((l: Lang) => {
     applyLang(l);
@@ -128,6 +183,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (s === "business") await seedBusinessCategories(lang);
+    if (s === "shared") await seedSharedCategories(lang);
     // every screen refetches under the new space
     window.location.reload();
   }, [lang]);
@@ -142,8 +198,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       businessName,
       taxRate,
       ready,
+      features,
+      setFeature,
+      household,
+      refreshHousehold,
     }),
-    [lang, setLang, space, switchSpace, businessName, taxRate, ready]
+    [lang, setLang, space, switchSpace, businessName, taxRate, ready, features, setFeature, household, refreshHousehold]
   );
 
   // Render screens only once the language is known (no English flash), and
@@ -196,5 +256,32 @@ async function seedBusinessCategories(lang: Lang) {
       kind,
       space: "business",
     }))
+  );
+}
+
+/** First visit to the couple space: household basics. */
+async function seedSharedCategories(lang: Lang) {
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("categories")
+    .select("id", { count: "exact", head: true });
+  if ((count ?? 0) > 0) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const rows: [string, string, "expense" | "income"][] = [
+    ["Contributions", "🤝", "income"],
+    ["Housing", "🏠", "expense"],
+    ["Groceries", "🛒", "expense"],
+    ["Utilities", "💡", "expense"],
+    ["Dining out", "🍽️", "expense"],
+    ["Kids", "🧸", "expense"],
+    ["Pets", "🐾", "expense"],
+    ["Travel", "✈️", "expense"],
+    ["Home & furniture", "🛋️", "expense"],
+  ];
+  await supabase.from("categories").insert(
+    rows.map(([name, icon, kind]) => ({ user_id: user.id, name: translate(lang, name), icon, kind }))
   );
 }

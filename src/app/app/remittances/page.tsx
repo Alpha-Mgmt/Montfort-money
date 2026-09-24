@@ -28,7 +28,7 @@ type Remit = {
 const num = (s: string) => Number(String(s).replace(/[^0-9.]/g, "")) || 0;
 
 export default function RemittancesPage() {
-  const { t, lang } = useApp();
+  const { t, lang, features, setFeature, ready } = useApp();
   const today = todayISO();
   const [rows, setRows] = useState<Remit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +173,25 @@ export default function RemittancesPage() {
 
   const best = quotes && quotes.length ? quotes[0] : null;
   const worst = quotes && quotes.length > 1 ? quotes[quotes.length - 1] : null;
+
+  if (ready && !features.remit) {
+    return (
+      <div className="grid max-w-xl gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">{t("Remittances")}</h1>
+          <p className="muted text-sm">
+            {t("Track what you send home, and find the provider that delivers the most.")}
+          </p>
+        </div>
+        <div className="card p-6">
+          <p className="muted text-sm">{t("Remittances is turned off. Turn it on to log transfers and compare providers.")}</p>
+          <button className="btn btn-primary mt-4" onClick={() => setFeature("remit", true)}>
+            {t("Turn on Remittances")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
