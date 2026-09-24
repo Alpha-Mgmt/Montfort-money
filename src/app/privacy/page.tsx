@@ -19,7 +19,7 @@ export default function PrivacyPage() {
 
       <div className="card p-8">
         <h1 className="font-display text-3xl font-semibold">Privacy Policy</h1>
-        <p className="faint mt-1 text-sm">Last updated: September 23, 2026</p>
+        <p className="faint mt-1 text-sm">Last updated: September 24, 2026</p>
 
         <div className="prose-mf mt-6 grid gap-5 text-sm leading-relaxed">
           <p className="muted">
@@ -36,8 +36,13 @@ export default function PrivacyPage() {
               <li>
                 <b>The financial information you enter</b> — income, expenses,
                 categories, budgets, debts, investments, goals, tasks and notes.
-                You type this in; we don’t pull it from your bank (bank
-                connections are a future, opt-in feature).
+                You type this in yourself.
+              </li>
+              <li>
+                <b>Bank data (only if you connect a bank)</b> — if you choose to
+                link an account, we use Plaid Inc. (“Plaid”) to receive account
+                names, balances and transactions from your bank. We never see or
+                store your bank username or password.
               </li>
               <li>
                 <b>Basic usage data</b> — anonymous analytics about how the app
@@ -52,6 +57,26 @@ export default function PrivacyPage() {
               your budget, calculate forecasts, generate the AI insights and
               answers you request, and improve the product. We do not sell your
               personal information, and we don’t show ads.
+            </p>
+          </Section>
+
+          <Section title="Bank connections and Plaid">
+            <p>
+              Connecting a bank is optional and requires two-step verification.
+              Before any data is shared, Plaid shows you which institution and
+              accounts are involved and asks for your consent. By connecting, you
+              acknowledge that Plaid collects and processes your information
+              under the{" "}
+              <a
+                className="underline"
+                href="https://plaid.com/legal/#end-user-privacy-policy"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Plaid End User Privacy Policy
+              </a>
+              . You can disconnect a bank at any time from More → Settings; we
+              then revoke our access with Plaid and stop receiving new data.
             </p>
           </Section>
 
@@ -70,7 +95,7 @@ export default function PrivacyPage() {
             <p>
               Your data is stored with our infrastructure providers — Supabase
               (database) and Vercel (hosting) — on servers in the United States,
-              encrypted in transit. Access is protected by row-level security so
+              encrypted in transit (TLS) and at rest (AES-256). Access is protected by row-level security so
               each account can only reach its own data.
             </p>
           </Section>
@@ -78,8 +103,8 @@ export default function PrivacyPage() {
           <Section title="Who we share it with">
             <p>
               We share data only with the service providers that make the app
-              work — Supabase (storage), Vercel (hosting), and Anthropic (AI
-              features) — and only as needed to provide the service. We may
+              work — Supabase (storage), Vercel (hosting), Plaid (bank
+              connections, only if you use them) and Anthropic (AI features) — and only as needed to provide the service. We may
               disclose information if required by law. We do not sell your data.
             </p>
           </Section>
@@ -102,8 +127,13 @@ export default function PrivacyPage() {
 
           <Section title="Data retention">
             <p>
-              We keep your data while your account is active. If you delete your
-              account, we delete your associated financial data.
+              We keep your data only while your account is active. When you
+              disconnect a bank, we revoke access with Plaid and delete the stored
+              connection credentials immediately; past transactions stay in your
+              budget until you delete them. When you ask us to delete your
+              account, we delete your account and all associated financial data
+              within 30 days; encrypted backups roll off within 7 more days. We
+              review this policy at least once a year.
             </p>
           </Section>
 
