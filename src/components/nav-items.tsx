@@ -109,6 +109,21 @@ export const toolItems = [
   },
 ];
 
+/** Owner-only sections (never shown to other users; the APIs re-check). */
+export const ownerItems = [
+  {
+    href: "/app/pamm",
+    label: "Cuentas PAMM",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="M7 14l3-3 3 3 5-6" />
+        <circle cx="18" cy="8" r="1.5" />
+      </svg>
+    ),
+  },
+];
+
 /** Tools the user has turned on. */
 export function visibleTools(f: { business: boolean; remit: boolean }, hasHousehold: boolean) {
   return toolItems.filter((n) => {

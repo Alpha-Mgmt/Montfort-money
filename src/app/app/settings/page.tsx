@@ -380,6 +380,15 @@ export default function SettingsPage() {
           <span aria-hidden>→</span>
         </Link>
       )}
+      {isOwner && (
+        <Link href="/app/pamm" className="card flex items-center justify-between p-6 hover:opacity-90">
+          <span>
+            <span className="block font-semibold">Cuentas PAMM</span>
+            <span className="muted text-sm">Reportes y proyecciones de tus clientes</span>
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
 
       <MfaSetup />
 

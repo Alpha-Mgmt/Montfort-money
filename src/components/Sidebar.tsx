@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
-import { navItems, visibleTools, isActive } from "@/components/nav-items";
+import { navItems, visibleTools, ownerItems, isActive } from "@/components/nav-items";
+import { useIsOwner } from "@/lib/useOwner";
 import { useApp } from "@/lib/i18n";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { t, features, household } = useApp();
+  const owner = useIsOwner();
   return (
     <aside className="sidebar">
       <Link href="/app">
@@ -43,6 +45,19 @@ export function Sidebar() {
             {t(n.label)}
           </Link>
         ))}
+        {owner && (
+          <>
+            <p className="faint mt-4 px-3 text-[11px] font-semibold uppercase tracking-wide">
+              {t("Owner")}
+            </p>
+            {ownerItems.map((n) => (
+              <Link key={n.href} href={n.href} className={isActive(n.href, pathname) ? "active" : ""}>
+                {n.icon}
+                {n.label}
+              </Link>
+            ))}
+          </>
+        )}
       </nav>
       <div className="mt-auto flex items-center justify-between gap-2">
         <LangToggle />
