@@ -36,6 +36,7 @@ const B: Record<string, RegExp> = {
   services: /services\b|servicios profesionales|consult/i,
   interest: /interest|inter[eé]s|dividend|investment income|rendimiento/i,
   other_income: /other income|otros ingresos|misc.*income/i,
+  refunds: /refund|reembolso|devoluci|reintegro/i,
   other: /^\s*(other|others|otro|otros|misc|miscellaneous|varios|general)\s*$/i,
 };
 
@@ -102,6 +103,12 @@ export const OWN_TRANSFER = new Set([
   "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
 ]);
 
+/** Money coming back that isn't pay or a transfer (e.g. an airline refund). */
+export function isRefundLike(t: { personal_finance_category?: { primary?: string } | null }, kind: Kind) {
+  const pri = t.personal_finance_category?.primary || "";
+  return kind === "income" && !!pri && pri !== "INCOME" && !pri.startsWith("TRANSFER_IN");
+}
+
 export function normMerchant(s?: string | null) {
   return (s || "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
 }
@@ -128,6 +135,12 @@ export function categorize(
   const prev = key ? learned.get(`${kind}|${key}`) : undefined;
   if (prev && cats.some((c) => c.id === prev.id)) return prev.id;
 
+  // refunds go to the user's refunds category when they have one
+  if (isRefundLike(t, kind)) {
+    const id = pick(["refunds"], kind, cats);
+    if (id) return id;
+  }
+
   // 2) well-known merchants
   const text = `${t.merchant_name || ""} ${t.name || ""}`;
   for (const [re, buckets] of MERCHANTS) {
@@ -140,7 +153,9 @@ export function categorize(
   // 3) Plaid's category — detailed first, then its primary
   const det = t.personal_finance_category?.detailed || "";
   const pri = t.personal_finance_category?.primary || "";
-  const tries = [PFC[det], PFC[pri]].filter(Boolean) as string[][];
+  // a known detailed category is specific enough — don't fall back to its
+  // primary (e.g. interest earned must not land in Salary)
+  const tries = (PFC[det] ? [PFC[det]] : [PFC[pri]]).filter(Boolean) as string[][];
   for (const buckets of tries) {
     const id = pick(buckets, kind, cats);
     if (id) return id;

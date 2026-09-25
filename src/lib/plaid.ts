@@ -1,5 +1,5 @@
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { categorize, normMerchant, OWN_TRANSFER } from "@/lib/categorize";
+import { categorize, isRefundLike, normMerchant, OWN_TRANSFER } from "@/lib/categorize";
 
 /**
  * Plaid over plain fetch (no SDK). Server-only.
@@ -122,18 +122,51 @@ export async function syncItem(
     .order("tx_date", { ascending: false })
     .limit(5000);
   for (const r of ((past ?? []) as any[]).reverse()) learned.set(`${r.kind}|${normMerchant(r.note)}`, { id: r.category_id, kind: r.kind });
-  const pickCat = (t: any, kind: "income" | "expense") =>
-    categorize(t, kind, (cats ?? []) as any[], learned);
+  const catList = (cats ?? []) as any[];
+  const kindOf = (t: any): "income" | "expense" => (Number(t.amount) < 0 ? "income" : "expense");
+
+  // if nothing fits, file it under a catch-all instead of leaving it empty —
+  // created once in the user's language when they don't have one yet
+  const { data: prof } = await db.from("profiles").select("lang").eq("id", item.user_id).maybeSingle();
+  const es = (prof as any)?.lang === "es";
+  const FALLBACK = {
+    expense: { name: es ? "Otros" : "Other", icon: "💸" },
+    income: { name: es ? "Otros ingresos" : "Other income", icon: "📈" },
+    refund: { name: es ? "Reembolsos" : "Refunds", icon: "↩️" },
+  };
+  const made = new Map<string, string>();
+  async function fallbackCat(kind: "income" | "expense", refund: boolean): Promise<string | null> {
+    if (item.space === "shared") return null; // shared categories belong to the household
+    const f = refund ? FALLBACK.refund : FALLBACK[kind];
+    const key = `${kind}|${f.name}`;
+    if (made.has(key)) return made.get(key)!;
+    const hit = catList.find((c) => c.kind === kind && c.name.toLowerCase() === f.name.toLowerCase());
+    let id: string | null = hit?.id ?? null;
+    if (!id) {
+      const { data: created } = await db
+        .from("categories")
+        .insert({ user_id: item.user_id, space: item.space, name: f.name, icon: f.icon, kind })
+        .select("id,name,kind")
+        .single();
+      id = (created as any)?.id ?? null;
+      if (created) catList.push(created);
+    }
+    if (id) made.set(key, id);
+    return id;
+  }
+
+  const chosen = new Map<string, string | null>();
+  const pickCat = (t: any) => chosen.get(t.transaction_id) ?? null;
   const isOwnTransfer = (t: any) => OWN_TRANSFER.has(t?.personal_finance_category?.detailed ?? "");
 
   const toRow = (t: any) => {
     // Plaid: positive amount = money out
-    const kind: "income" | "expense" = t.amount < 0 ? "income" : "expense";
+    const kind = kindOf(t);
     return {
       user_id: item.user_id,
       space: item.space,
       account_id: acctId.get(t.account_id) ?? null,
-      category_id: pickCat(t, kind),
+      category_id: pickCat(t),
       kind,
       amount: Math.abs(Number(t.amount)),
       tx_date: t.date,
@@ -149,6 +182,12 @@ export async function syncItem(
   const all = [...added, ...modified].filter((t) => Number(t.amount) !== 0);
   const transfers = all.filter(isOwnTransfer).map((t) => t.transaction_id);
   const upserts = all.filter((t) => !isOwnTransfer(t));
+  for (const t of upserts) {
+    const kind = kindOf(t);
+    let id = categorize(t, kind, catList, learned);
+    if (!id) id = await fallbackCat(kind, isRefundLike(t, kind));
+    chosen.set(t.transaction_id, id);
+  }
   const ids = upserts.map((t) => t.transaction_id);
   const existing = new Map<string, string>();
   const uncategorized = new Set<string>();
