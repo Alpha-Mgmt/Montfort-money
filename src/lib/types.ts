@@ -26,7 +26,18 @@ export type Frequency =
   | "biweekly"
   | "semimonthly"
   | "monthly"
-  | "yearly";
+  | "quarterly"
+  | "semiannual"
+  | "yearly"
+  | "custom";
+
+/**
+ * Optional details of WHEN a plan item happens.
+ * day: day of month (monthly / quarterly), 1–31, clamped to short months
+ * days: two days of month (twice a month), default [15, 30]
+ * dates: "MM-DD" dates that repeat every year (twice a year / custom)
+ */
+export type Schedule = { day?: number; days?: number[]; dates?: string[] };
 
 export type RecurringItem = {
   id: string;
@@ -39,6 +50,7 @@ export type RecurringItem = {
   start_date: string;
   end_date: string | null;
   active: boolean;
+  schedule?: Schedule | null;
 };
 
 export type Transaction = {

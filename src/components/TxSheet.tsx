@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet } from "@/components/Sheet";
 import { FrequencyPicker } from "@/components/FrequencyPicker";
+import { whenFor } from "@/components/WhenPicker";
 import { todayISO } from "@/lib/format";
 import type { Account, Category, Frequency, Kind } from "@/lib/types";
 import { tr } from "@/lib/i18n";
@@ -145,7 +146,8 @@ export function TxSheet({
           category_id: categoryId,
           account_id: draft.account_id || null,
           frequency: repeat,
-          start_date: draft.tx_date,
+          start_date: whenFor(repeat, draft.tx_date).start_date,
+          schedule: whenFor(repeat, draft.tx_date).schedule,
           end_date: repeatEnd || null,
         });
       }

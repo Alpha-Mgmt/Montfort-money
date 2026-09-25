@@ -27,8 +27,10 @@ import { Sheet } from "@/components/Sheet";
 import { CategorySelect, categoryPath } from "@/components/CategorySelect";
 import { ForecastChart } from "@/components/ForecastChart";
 import { FrequencyPicker } from "@/components/FrequencyPicker";
+import { WhenPicker, whenFor } from "@/components/WhenPicker";
 import { ProgressBar } from "@/components/ProgressBar";
 import type {
+  Schedule,
   Account,
   Category,
   Debt,
@@ -59,6 +61,7 @@ type Draft = {
   frequency: Frequency;
   start_date: string;
   end_date: string;
+  schedule: Schedule | null;
 };
 
 const emptyDraft = (kind: Kind): Draft => ({
@@ -70,6 +73,7 @@ const emptyDraft = (kind: Kind): Draft => ({
   frequency: "monthly",
   start_date: todayISO(),
   end_date: "",
+  schedule: { day: Number(todayISO().slice(8, 10)) },
 });
 
 export default function ForecastPage() {
@@ -142,6 +146,7 @@ export default function ForecastPage() {
       frequency: it.frequency,
       start_date: it.start_date,
       end_date: it.end_date ?? "",
+      schedule: it.schedule ?? null,
     });
     setOpen(true);
   }
@@ -161,6 +166,7 @@ export default function ForecastPage() {
       frequency: draft.frequency,
       start_date: draft.start_date,
       end_date: draft.end_date || null,
+      schedule: draft.schedule,
     };
     if (draft.id) {
       await supabase.from("recurring_items").update(row).eq("id", draft.id);
@@ -502,9 +508,16 @@ export default function ForecastPage() {
               <FrequencyPicker
                 value={draft.frequency}
                 onChange={(v) =>
-                  setDraft({ ...draft, frequency: v as Frequency })
+                  setDraft({ ...draft, frequency: v as Frequency, ...whenFor(v as Frequency, draft.start_date) })
                 }
               />
+              <div className="mt-2">
+                <WhenPicker
+                  freq={draft.frequency}
+                  value={{ start_date: draft.start_date, schedule: draft.schedule }}
+                  onChange={(w) => setDraft({ ...draft, ...w })}
+                />
+              </div>
             </div>
             <div>
               <label className="label">{tr("Category")}</label>

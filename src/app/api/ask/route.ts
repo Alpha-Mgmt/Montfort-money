@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     supabase
       .from("recurring_items")
       .select(
-        "id,title,kind,amount,category_id,account_id,frequency,start_date,end_date,active"
+        "id,title,kind,amount,category_id,account_id,frequency,start_date,end_date,active,schedule"
       ),
     supabase
       .from("debts")

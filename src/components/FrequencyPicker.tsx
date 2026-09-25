@@ -11,7 +11,10 @@ const order: Frequency[] = [
   "semimonthly",
   "biweekly",
   "weekly",
+  "quarterly",
+  "semiannual",
   "yearly",
+  "custom",
 ];
 
 /**

@@ -63,7 +63,7 @@ export function buildMonthSummary(input: InsightInput): MonthSummary {
   const plannedByCat = new Map<string, number>();
   for (const it of recurring) {
     if (!it.active) continue;
-    const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month);
+    const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
     if (n === 0) continue;
     const key = it.category_id ?? "uncategorized";
     plannedByCat.set(key, (plannedByCat.get(key) ?? 0) + it.amount * n);

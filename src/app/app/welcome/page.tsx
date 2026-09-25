@@ -7,8 +7,9 @@ import { Wordmark } from "@/components/Logo";
 import { monthStartISO, todayISO } from "@/lib/format";
 import type { Category, Frequency } from "@/lib/types";
 import { tr } from "@/lib/i18n";
+import { WhenPicker, whenFor, type When } from "@/components/WhenPicker";
 
-type Line = { name: string; amount: string; freq: Frequency };
+type Line = { name: string; amount: string; freq: Frequency; when: When | null };
 type CatBlock = { name: string; lines: Line[] };
 type DebtRow = { name: string; balance: string; apr: string; payment: string; dueDay: string };
 type InvRow = { name: string; balance: string; apr: string; monthly: string };
@@ -20,11 +21,16 @@ const freqOptions: { v: Frequency; label: string }[] = [
   { v: "semimonthly", label: "Twice a month" },
   { v: "biweekly", label: "Every 2 weeks" },
   { v: "weekly", label: "Weekly" },
+  { v: "quarterly", label: "Quarterly" },
+  { v: "semiannual", label: "Twice a year" },
   { v: "yearly", label: "Yearly" },
+  { v: "custom", label: "Custom dates" },
   { v: "once", label: "One-time" },
 ];
 
-const emptyLine = (): Line => ({ name: "", amount: "", freq: "monthly" });
+const emptyLine = (): Line => ({ name: "", amount: "", freq: "monthly", when: null });
+// the date anchor a line starts from before the user picks days
+const anchorFor = (kind: "income" | "expense") => (kind === "income" ? todayISO() : monthStartISO());
 const emptyBlock = (): CatBlock => ({ name: "", lines: [emptyLine()] });
 
 // ---------- small building blocks (module-level so inputs keep focus) ----------
@@ -112,7 +118,7 @@ function CategoryLinesBuilder({
               <select
                 className="input !w-auto !py-1.5 !px-2 text-sm"
                 value={l.freq}
-                onChange={(e) => setLine(i, k, { freq: e.target.value as Frequency })}
+                onChange={(e) => setLine(i, k, { freq: e.target.value as Frequency, when: null })}
               >
                 {freqOptions.map((o) => (
                   <option key={o.v} value={o.v}>
@@ -131,6 +137,14 @@ function CategoryLinesBuilder({
                   ×
                 </button>
               )}
+              <div className="basis-full pl-1">
+                <WhenPicker
+                  compact
+                  freq={l.freq}
+                  value={l.when ?? whenFor(l.freq, anchorFor(kind))}
+                  onChange={(w) => setLine(i, k, { when: w })}
+                />
+              </div>
             </div>
           ))}
           <button
@@ -234,7 +248,9 @@ export default function WelcomePage() {
           category_id: catId,
           account_id: null,
           frequency: l.freq,
-          start_date: kind === "income" ? todayISO() : monthStartISO(),
+          // the days the user picked, or the same defaults as before
+          start_date: l.when?.start_date ?? whenFor(l.freq, kind === "income" ? todayISO() : monthStartISO()).start_date,
+          schedule: l.when?.schedule ?? whenFor(l.freq, kind === "income" ? todayISO() : monthStartISO()).schedule,
         });
       }
     }

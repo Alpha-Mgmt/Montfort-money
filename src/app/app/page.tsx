@@ -228,7 +228,8 @@ export default function MonthPage() {
         it.frequency,
         it.start_date,
         it.end_date,
-        month
+        month,
+        it.schedule
       );
       if (times === 0) continue;
       const key = it.category_id ?? uncatId(it.kind);
