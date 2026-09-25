@@ -1,4 +1,5 @@
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { categorize, normMerchant, OWN_TRANSFER } from "@/lib/categorize";
 
 /**
  * Plaid over plain fetch (no SDK). Server-only.
@@ -64,15 +65,19 @@ export function mapAccountType(type: string, subtype?: string | null): string {
  * Pull new/changed/removed transactions for one item with /transactions/sync
  * and mirror them into our tables. Returns counts.
  */
-export async function syncItem(item: {
-  id: string;
-  user_id: string;
-  space: string;
-  access_token: string;
-  cursor: string | null;
-}) {
+export async function syncItem(
+  item: {
+    id: string;
+    user_id: string;
+    space: string;
+    access_token: string;
+    cursor: string | null;
+  },
+  opts: { full?: boolean } = {}
+) {
   const db = adminDb();
-  let cursor = item.cursor ?? undefined;
+  // full = re-read the whole history (used to re-categorize)
+  let cursor = opts.full ? undefined : item.cursor ?? undefined;
   let added: any[] = [];
   let modified: any[] = [];
   let removed: any[] = [];
@@ -105,8 +110,21 @@ export async function syncItem(item: {
     .select("id,name,kind")
     .eq("user_id", item.user_id)
     .eq("space", item.space);
+  // what the user already chose for each merchant (most recent wins)
+  const learned = new Map<string, { id: string; kind: string }>();
+  const { data: past } = await db
+    .from("transactions")
+    .select("note,kind,category_id,tx_date")
+    .eq("user_id", item.user_id)
+    .eq("space", item.space)
+    .not("category_id", "is", null)
+    .not("note", "is", null)
+    .order("tx_date", { ascending: false })
+    .limit(5000);
+  for (const r of ((past ?? []) as any[]).reverse()) learned.set(`${r.kind}|${normMerchant(r.note)}`, { id: r.category_id, kind: r.kind });
   const pickCat = (t: any, kind: "income" | "expense") =>
-    guessCategory(t?.personal_finance_category?.primary, kind, (cats ?? []) as any[]);
+    categorize(t, kind, (cats ?? []) as any[], learned);
+  const isOwnTransfer = (t: any) => OWN_TRANSFER.has(t?.personal_finance_category?.detailed ?? "");
 
   const toRow = (t: any) => {
     // Plaid: positive amount = money out
@@ -126,16 +144,24 @@ export async function syncItem(item: {
     };
   };
 
-  const upserts = [...added, ...modified].filter((t) => Number(t.amount) !== 0);
+  // money moving between the user's own accounts (e.g. paying the credit card)
+  // is not income or spending — leave it out so nothing is counted twice
+  const all = [...added, ...modified].filter((t) => Number(t.amount) !== 0);
+  const transfers = all.filter(isOwnTransfer).map((t) => t.transaction_id);
+  const upserts = all.filter((t) => !isOwnTransfer(t));
   const ids = upserts.map((t) => t.transaction_id);
   const existing = new Map<string, string>();
+  const uncategorized = new Set<string>();
   for (let i = 0; i < ids.length; i += 200) {
     const { data } = await db
       .from("transactions")
-      .select("id,external_id")
+      .select("id,external_id,category_id")
       .eq("user_id", item.user_id)
       .in("external_id", ids.slice(i, i + 200));
-    for (const r of (data ?? []) as any[]) existing.set(r.external_id, r.id);
+    for (const r of (data ?? []) as any[]) {
+      existing.set(r.external_id, r.id);
+      if (!r.category_id) uncategorized.add(r.external_id);
+    }
   }
   const inserts = upserts.filter((t) => !existing.has(t.transaction_id)).map(toRow);
   for (let i = 0; i < inserts.length; i += 500) {
@@ -144,12 +170,12 @@ export async function syncItem(item: {
   for (const t of upserts.filter((x) => existing.has(x.transaction_id))) {
     // keep the user's own category if they changed it: only refresh money fields
     const r = toRow(t);
-    await db
-      .from("transactions")
-      .update({ amount: r.amount, kind: r.kind, tx_date: r.tx_date, note: r.note, pending: r.pending })
-      .eq("id", existing.get(t.transaction_id)!);
+    const patch: Record<string, unknown> = { amount: r.amount, kind: r.kind, tx_date: r.tx_date, note: r.note, pending: r.pending };
+    // only fill a category if it's still empty — never overwrite the user's choice
+    if (uncategorized.has(t.transaction_id) && r.category_id) patch.category_id = r.category_id;
+    await db.from("transactions").update(patch).eq("id", existing.get(t.transaction_id)!);
   }
-  const removedIds = removed.map((r: any) => r.transaction_id).filter(Boolean);
+  const removedIds = [...removed.map((r: any) => r.transaction_id), ...transfers].filter(Boolean);
   if (removedIds.length) {
     await db.from("transactions").delete().eq("user_id", item.user_id).in("external_id", removedIds);
   }
@@ -174,34 +200,4 @@ export async function syncItem(item: {
     .eq("id", item.id);
 
   return { added: inserts.length, updated: upserts.length - inserts.length, removed: removedIds.length };
-}
-
-/** Plaid personal_finance_category.primary → one of the user's category names */
-const PFC_HINTS: Record<string, RegExp> = {
-  INCOME: /salary|income|sales|ingres|salario|ventas|pay/i,
-  FOOD_AND_DRINK: /dining|restaurant|comida|food|groceries|super/i,
-  GENERAL_MERCHANDISE: /shopping|compras|supplies|material/i,
-  TRANSPORTATION: /transport|gas|vehicle|fuel|auto|gasolina/i,
-  TRAVEL: /travel|viaje|transport/i,
-  RENT_AND_UTILITIES: /utilit|servicios|rent|housing|vivienda|renta/i,
-  ENTERTAINMENT: /entertain|entreten|subscri|suscrip/i,
-  MEDICAL: /health|salud|medical/i,
-  PERSONAL_CARE: /health|personal|salud/i,
-  GENERAL_SERVICES: /subscri|suscrip|software|services|servicios/i,
-  LOAN_PAYMENTS: /debt|loan|deuda|préstamo/i,
-  BANK_FEES: /fee|bank|comisi/i,
-  GOVERNMENT_AND_NON_PROFIT: /tax|impuest/i,
-  HOME_IMPROVEMENT: /housing|home|vivienda|casa/i,
-};
-
-export function guessCategory(
-  primary: string | undefined,
-  kind: "income" | "expense",
-  cats: { id: string; name: string; kind: string }[]
-): string | null {
-  if (!primary || primary === "TRANSFER_IN" || primary === "TRANSFER_OUT") return null;
-  const re = PFC_HINTS[primary];
-  if (!re) return null;
-  const hit = cats.find((c) => c.kind === kind && re.test(c.name));
-  return hit?.id ?? null;
 }

@@ -7,10 +7,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // POST → sync every connection of the signed-in user
-export async function POST() {
+// body { recategorize: true } re-reads the full history and fills empty categories
+export async function POST(req: Request) {
   if (!plaidConfigured()) return NextResponse.json({ error: "not_configured" }, { status: 503 });
   const me = await currentUser();
   if (!me) return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+  const body = await req.json().catch(() => ({}));
+  const full = body?.recategorize === true;
   const db = adminDb();
   const { data: items } = await db
     .from("plaid_items")
@@ -19,7 +22,7 @@ export async function POST() {
   const total = { added: 0, updated: 0, removed: 0, errors: 0 };
   for (const it of (items ?? []) as any[]) {
     try {
-      const c = await syncItem(it);
+      const c = await syncItem(it, { full });
       total.added += c.added;
       total.updated += c.updated;
       total.removed += c.removed;

@@ -31,6 +31,7 @@ const ago = (iso: string | null) => {
   if (d <= 0) return "hoy";
   if (d === 1) return "ayer";
   if (d < 30) return `hace ${d} días`;
+  if (d < 60) return "hace 1 mes";
   if (d < 365) return `hace ${Math.floor(d / 30)} meses`;
   return `hace ${Math.floor(d / 365)} años`;
 };
@@ -225,12 +226,12 @@ export default function AdminPage() {
           <p className="faint text-xs font-semibold uppercase tracking-wide">Usuarios ({list.length})</p>
           <div className="flex flex-wrap gap-2">
             <input
-              className="input !py-1.5 text-sm"
+              className="input !py-1.5 text-sm sm:!w-56"
               placeholder="Buscar correo o nombre"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            <select className="input !py-1.5 text-sm" value={filter} onChange={(e) => setFilter(e.target.value as any)}>
+            <select className="input !py-1.5 text-sm sm:!w-auto" value={filter} onChange={(e) => setFilter(e.target.value as any)}>
               <option value="all">Todos</option>
               <option value="bank">Con banco</option>
               <option value="inactive">Inactivos 30+ días</option>

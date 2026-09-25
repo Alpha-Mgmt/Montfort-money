@@ -733,4 +733,6 @@ export const es: Record<string, string> = {
   "Verify": "Verificar",
   "To protect your bank data, turn on two-step verification first.": "Para proteger tus datos bancarios, primero activa la verificación en dos pasos.",
   "Done. Now tap Connect a bank.": "Listo. Ahora toca Conectar un banco.",
+  "Re-categorize": "Re-categorizar",
+  "Done. Bank transactions without a category were sorted again.": "Listo. Las transacciones del banco sin categoría se volvieron a ordenar.",
 };

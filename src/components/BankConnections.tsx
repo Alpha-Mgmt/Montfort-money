@@ -40,7 +40,7 @@ export function BankConnections() {
   const { t, lang, space } = useApp();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [items, setItems] = useState<Item[]>([]);
-  const [busy, setBusy] = useState<"" | "link" | "sync">("");
+  const [busy, setBusy] = useState<"" | "link" | "sync" | "recat">("");
   const [msg, setMsg] = useState("");
   const [needMfa, setNeedMfa] = useState(false);
 
@@ -113,6 +113,18 @@ export function BankConnections() {
     load();
   }
 
+  async function recategorize() {
+    setBusy("recat");
+    const r = await fetch("/api/plaid/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ recategorize: true }),
+    });
+    setMsg(r.ok ? t("Done. Bank transactions without a category were sorted again.") : t("Sync failed."));
+    setBusy("");
+    load();
+  }
+
   async function disconnect(id: string) {
     if (!confirm(t("Disconnect this bank? Past transactions stay."))) return;
     await fetch("/api/plaid/items", {
@@ -162,6 +174,11 @@ export function BankConnections() {
             {items.length > 0 && (
               <button className="btn btn-ghost" onClick={sync} disabled={!!busy}>
                 {busy === "sync" ? "…" : t("Sync now")}
+              </button>
+            )}
+            {items.length > 0 && (
+              <button className="btn btn-ghost" onClick={recategorize} disabled={!!busy}>
+                {busy === "recat" ? "…" : t("Re-categorize")}
               </button>
             )}
           </div>

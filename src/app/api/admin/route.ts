@@ -67,7 +67,7 @@ export async function GET() {
       confirmed: !!u.email_confirmed_at,
       mfa: (u.factors ?? []).some((f: any) => f.status === "verified"),
       lang: p.lang ?? null,
-      onboarded: !!p.onboarded,
+      onboarded: p.onboarded ?? true,
       business: !!p.feature_business,
       remit: !!p.feature_remit,
       couple: couple.has(u.id),
