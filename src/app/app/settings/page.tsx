@@ -31,6 +31,13 @@ export default function SettingsPage() {
   const [accts, setAccts] = useState<Account[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [busy, setBusy] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setIsOwner(!!j?.owner))
+      .catch(() => {});
+  }, []);
   const [showDebts, setShowDebts] = useState(true);
   const [showInvs, setShowInvs] = useState(true);
 
@@ -363,6 +370,16 @@ export default function SettingsPage() {
           <LangToggle />
         </div>
       </div>
+
+      {isOwner && (
+        <Link href="/app/admin" className="card flex items-center justify-between p-6 hover:opacity-90">
+          <span>
+            <span className="block font-semibold">Panel del dueño</span>
+            <span className="muted text-sm">Usuarios, actividad y solicitudes de borrado</span>
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
 
       <MfaSetup />
 

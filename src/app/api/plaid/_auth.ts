@@ -15,6 +15,7 @@ export async function currentUser() {
   return {
     mfa: aal?.currentLevel === "aal2",
     id: user.id,
+    email: (user.email || "").toLowerCase(),
     space: (profile?.active_space as string) || "personal",
     lang: (profile?.lang as string) || "en",
   };
