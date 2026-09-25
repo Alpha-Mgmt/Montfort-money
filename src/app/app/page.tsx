@@ -79,6 +79,11 @@ import type {
 } from "@/lib/types";
 import { tr } from "@/lib/i18n";
 
+// transactions without a category are grouped per kind, so an uncategorized
+// expense never shows up in the income section (and vice versa)
+const uncatId = (kind: string) => (kind === "income" ? "uncategorized-income" : "uncategorized");
+const isUncat = (id: string | null | undefined) => id === "uncategorized" || id === "uncategorized-income";
+
 export default function MonthPage() {
   const router = useRouter();
   const [month, setMonth] = useState(monthStartISO());
@@ -207,7 +212,7 @@ export default function MonthPage() {
   const txByCat = useMemo(() => {
     const m = new Map<string, Transaction[]>();
     for (const t of catTxs) {
-      const key = t.category_id ?? "uncategorized";
+      const key = t.category_id ?? uncatId(t.kind);
       const list = m.get(key) ?? [];
       list.push(t);
       m.set(key, list);
@@ -226,7 +231,7 @@ export default function MonthPage() {
         month
       );
       if (times === 0) continue;
-      const key = it.category_id ?? "uncategorized";
+      const key = it.category_id ?? uncatId(it.kind);
       const list = m.get(key) ?? [];
       list.push({ item: it, total: it.amount * times });
       m.set(key, list);
@@ -523,7 +528,7 @@ export default function MonthPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const catId = categoryId === "uncategorized" ? null : categoryId;
+    const catId = isUncat(categoryId) ? null : categoryId;
     if (freq === "none") {
       // log money that actually moved (optionally toward a plan item)
       await supabase.from("transactions").insert({
@@ -904,7 +909,7 @@ export default function MonthPage() {
             </span>
             {items.length > 0 ? (
               <span className="muted font-medium">/ {money(plan)}</span>
-            ) : cat.id !== "uncategorized" ? (
+            ) : !isUncat(cat.id) ? (
               <PlanEditor catId={cat.id} plan={plan} />
             ) : plan > 0 ? (
               <span className="muted font-medium">/ {money(plan)}</span>
@@ -919,7 +924,7 @@ export default function MonthPage() {
               quickAddTx(kind, cat.id, amount, note, freq, date)
             }
           />
-          {isEmpty && cat.id !== "uncategorized" && (
+          {isEmpty && !isUncat(cat.id) && (
             <DeleteCategoryButton catId={cat.id} />
           )}
         </div>
@@ -1070,12 +1075,10 @@ export default function MonthPage() {
             .map((c) => (
               <CategoryRow key={c.id} cat={c} kind={kind} />
             ))}
-          {(txByCat.get("uncategorized") ?? []).some(
-            (t) => t.kind === kind
-          ) && (
+          {(txByCat.get(uncatId(kind)) ?? []).length > 0 && (
             <CategoryRow
               cat={{
-                id: "uncategorized",
+                id: uncatId(kind),
                 name: tr("Uncategorized"),
                 icon: "🗂️",
                 kind,
