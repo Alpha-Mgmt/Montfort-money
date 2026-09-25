@@ -120,7 +120,15 @@ export function BankConnections() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ recategorize: true }),
     });
-    setMsg(r.ok ? t("Done. Bank transactions without a category were sorted again.") : t("Sync failed."));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.errors) {
+      setMsg(`${t("Sync failed.")} ${(j.messages ?? []).join(", ")}`);
+    } else {
+      setMsg(
+        t("Done. {f} categorized, {l} still without a category.", { f: j.filled ?? 0, l: j.left ?? 0 }) +
+          (j.created?.length ? " " + t("New categories: {v}.", { v: j.created.join(", ") }) : "")
+      );
+    }
     setBusy("");
     load();
   }

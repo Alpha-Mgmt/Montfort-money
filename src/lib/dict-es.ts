@@ -735,4 +735,6 @@ export const es: Record<string, string> = {
   "Done. Now tap Connect a bank.": "Listo. Ahora toca Conectar un banco.",
   "Re-categorize": "Re-categorizar",
   "Done. Bank transactions without a category were sorted again.": "Listo. Las transacciones del banco sin categoría se volvieron a ordenar.",
+  "Done. {f} categorized, {l} still without a category.": "Listo. {f} categorizadas, {l} siguen sin categoría.",
+  "New categories: {v}.": "Categorías nuevas: {v}.",
 };

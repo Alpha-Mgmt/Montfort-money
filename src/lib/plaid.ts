@@ -135,6 +135,8 @@ export async function syncItem(
     refund: { name: es ? "Reembolsos" : "Refunds", icon: "↩️" },
   };
   const made = new Map<string, string>();
+  const createdNames: string[] = [];
+  let filled = 0;
   async function fallbackCat(kind: "income" | "expense", refund: boolean): Promise<string | null> {
     if (item.space === "shared") return null; // shared categories belong to the household
     const f = refund ? FALLBACK.refund : FALLBACK[kind];
@@ -143,13 +145,17 @@ export async function syncItem(
     const hit = catList.find((c) => c.kind === kind && c.name.toLowerCase() === f.name.toLowerCase());
     let id: string | null = hit?.id ?? null;
     if (!id) {
-      const { data: created } = await db
+      const { data: created, error: cErr } = await db
         .from("categories")
         .insert({ user_id: item.user_id, space: item.space, name: f.name, icon: f.icon, kind })
         .select("id,name,kind")
         .single();
+      if (cErr) console.error("[plaid] fallback category", f.name, cErr.message);
       id = (created as any)?.id ?? null;
-      if (created) catList.push(created);
+      if (created) {
+        catList.push(created);
+        createdNames.push(f.name);
+      }
     }
     if (id) made.set(key, id);
     return id;
@@ -211,7 +217,10 @@ export async function syncItem(
     const r = toRow(t);
     const patch: Record<string, unknown> = { amount: r.amount, kind: r.kind, tx_date: r.tx_date, note: r.note, pending: r.pending };
     // only fill a category if it's still empty — never overwrite the user's choice
-    if (uncategorized.has(t.transaction_id) && r.category_id) patch.category_id = r.category_id;
+    if (uncategorized.has(t.transaction_id) && r.category_id) {
+      patch.category_id = r.category_id;
+      filled++;
+    }
     await db.from("transactions").update(patch).eq("id", existing.get(t.transaction_id)!);
   }
   const removedIds = [...removed.map((r: any) => r.transaction_id), ...transfers].filter(Boolean);
@@ -238,5 +247,21 @@ export async function syncItem(
     .update({ cursor, last_synced_at: new Date().toISOString(), error: null })
     .eq("id", item.id);
 
-  return { added: inserts.length, updated: upserts.length - inserts.length, removed: removedIds.length };
+  // how many bank transactions in this space are still without a category
+  const { data: left } = await db
+    .from("transactions")
+    .select("id")
+    .eq("user_id", item.user_id)
+    .eq("space", item.space)
+    .eq("source", "plaid")
+    .is("category_id", null);
+  return {
+    added: inserts.length,
+    updated: upserts.length - inserts.length,
+    removed: removedIds.length,
+    filled,
+    created: createdNames,
+    left: (left ?? []).length,
+    seen: all.length,
+  };
 }
