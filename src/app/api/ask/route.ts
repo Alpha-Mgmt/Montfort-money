@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAiUsage } from "@/lib/ai-usage";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { buildAskContext } from "@/lib/insights";
 import { addMonths, money, monthStartISO, todayISO } from "@/lib/format";
@@ -221,6 +222,7 @@ export async function POST(request: Request) {
     }
 
     const data = await resp.json();
+    await logAiUsage(supabase, user.id, "ask", MODEL, data?.usage);
     const blocks: any[] = data?.content ?? [];
     let reply: string = blocks.filter((b) => b?.type === "text").map((b) => b.text).join("").trim();
 

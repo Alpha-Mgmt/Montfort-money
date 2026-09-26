@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAiUsage } from "@/lib/ai-usage";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { buildMonthSummary } from "@/lib/insights";
 import { monthRange, monthStartISO, todayISO } from "@/lib/format";
@@ -198,6 +199,7 @@ export async function POST(request: Request) {
     }
 
     const data = await resp.json();
+    await logAiUsage(supabase, user.id, "insights", MODEL, data?.usage);
     const text: string =
       data?.content?.map((b: any) => b?.text ?? "").join("") ?? "";
     const parsed = parseInsights(text);

@@ -22,7 +22,18 @@ type Row = {
   bank_names: string[];
   last_bank_sync: string | null;
   owner: boolean;
+  ai_calls: number;
+  ai_cost: number;
 };
+type AiUsage = {
+  month: { cost: number; calls: number; asks: number; insights: number; inputTokens: number; outputTokens: number; projected: number };
+  today: { cost: number; calls: number };
+  lastMonth: { cost: number; calls: number };
+  days: { day: string; cost: number }[];
+};
+const usd = (n: number) =>
+  "$" + (n < 1 ? n.toFixed(3) : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const tok = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n));
 type Feedback = { user_id: string; email: string | null; message: string; page: string | null; created_at: string };
 
 const DAY = 86400000;
@@ -43,6 +54,7 @@ export default function AdminPage() {
   const [state, setState] = useState<"loading" | "ok" | "forbidden" | "mfa" | "error">("loading");
   const [rows, setRows] = useState<Row[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [ai, setAi] = useState<AiUsage | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "bank" | "inactive" | "issues">("all");
   const [del, setDel] = useState<Row | null>(null);
@@ -58,6 +70,7 @@ export default function AdminPage() {
     if (!r.ok) return setState("error");
     setRows(j.users ?? []);
     setFeedback(j.feedback ?? []);
+    setAi(j.ai ?? null);
     setState("ok");
   }
   useEffect(() => {
@@ -220,6 +233,50 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {ai && (
+        <div className="card p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="faint text-xs font-semibold uppercase tracking-wide">Consumo de Montfort AI</p>
+            <a className="faint text-xs underline underline-offset-4" href="https://console.anthropic.com/settings/limits" target="_blank" rel="noreferrer">
+              Límites de gasto en Anthropic →
+            </a>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Este mes" value={usd(ai.month.cost)} sub={`~${usd(ai.month.projected)} al cierre del mes`} />
+            <Stat label="Hoy" value={usd(ai.today.cost)} sub={`${ai.today.calls} ${ai.today.calls === 1 ? "llamada" : "llamadas"}`} />
+            <Stat label="Llamadas este mes" value={ai.month.calls} sub={`${ai.month.asks} preguntas · ${ai.month.insights} insights`} />
+            <Stat label="Mes pasado" value={usd(ai.lastMonth.cost)} sub={`${ai.lastMonth.calls} ${ai.lastMonth.calls === 1 ? "llamada" : "llamadas"}`} />
+          </div>
+          <div className="mt-5 flex h-20 items-end gap-[3px]" role="img" aria-label="Costo por día este mes">
+            {(() => {
+              const max = Math.max(0.0001, ...ai.days.map((d) => d.cost));
+              return ai.days.map((d) => (
+                <div
+                  key={d.day}
+                  className="flex-1 rounded-t-[3px]"
+                  title={`${d.day}: ${usd(d.cost)}`}
+                  style={{ height: `${Math.max(2, (d.cost / max) * 80)}px`, background: "var(--mint)", opacity: d.cost ? 1 : 0.2 }}
+                />
+              ));
+            })()}
+          </div>
+          <p className="faint mt-2 text-[11px]">
+            Costo por día · {tok(ai.month.inputTokens)} tokens de entrada, {tok(ai.month.outputTokens)} de salida este mes. Estimado con el precio del modelo; tu factura real está en console.anthropic.com.
+          </p>
+          {rows.some((r) => r.ai_calls > 0) && (
+            <div className="mt-4 grid gap-1.5">
+              <p className="text-sm font-semibold">Quién más la usa</p>
+              {[...rows].filter((r) => r.ai_calls > 0).sort((a, b) => b.ai_cost - a.ai_cost).slice(0, 8).map((r) => (
+                <div key={r.id} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate">{r.email}</span>
+                  <span className="shrink-0 tabular-nums"><span className="faint text-xs">{r.ai_calls} llamadas · </span><b>{usd(r.ai_cost)}</b></span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="faint text-xs font-semibold uppercase tracking-wide">Usuarios ({list.length})</p>
@@ -266,6 +323,7 @@ export default function AdminPage() {
                   {r.business && <span className="chip !py-0">Negocio</span>}
                   {r.couple && <span className="chip !py-0">Pareja</span>}
                   {r.remit && <span className="chip !py-0">Remesas</span>}
+                  {r.ai_calls > 0 && <span className="chip !py-0">AI: {r.ai_calls} · {usd(r.ai_cost)}</span>}
                   {!r.onboarded && <span className="chip !py-0">sin terminar bienvenida</span>}
                 </div>
               </div>
