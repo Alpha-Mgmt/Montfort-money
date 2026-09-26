@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useApp } from "@/lib/i18n";
 import { mfaStatus } from "@/lib/mfa";
 import { MfaSetup } from "@/components/MfaSetup";
+import { MfaCodeCard } from "@/components/MfaGate";
 
 type Item = {
   id: string;
@@ -43,6 +44,7 @@ export function BankConnections() {
   const [busy, setBusy] = useState<"" | "link" | "sync" | "recat">("");
   const [msg, setMsg] = useState("");
   const [needMfa, setNeedMfa] = useState(false);
+  const [needCode, setNeedCode] = useState(false);
 
   async function load() {
     try {
@@ -62,8 +64,12 @@ export function BankConnections() {
   async function connect() {
     setMsg("");
     const m = await mfaStatus().catch(() => null);
-    if (!m || !m.enrolled || !m.verifiedNow) {
+    if (!m || !m.enrolled) {
       setNeedMfa(true);
+      return;
+    }
+    if (!m.verifiedNow) {
+      setNeedCode(true);
       return;
     }
     setBusy("link");
@@ -194,6 +200,18 @@ export function BankConnections() {
             {t("New connections go to your {space} space.", { space: space === "business" ? t("Business") : t("Personal") })}
           </p>
         </>
+      )}
+      {needCode && (
+        <div className="mt-4">
+          <MfaCodeCard
+            reason={t("To protect your bank data, confirm it's you with the code from your authenticator app.")}
+            onDone={() => {
+              setNeedCode(false);
+              connect();
+            }}
+            onCancel={() => setNeedCode(false)}
+          />
+        </div>
       )}
       {needMfa && (
         <div className="mt-4">

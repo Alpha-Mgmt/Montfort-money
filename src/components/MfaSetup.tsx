@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { clearUnverified, mfaStatus, verifyCode } from "@/lib/mfa";
+import { MfaCodeCard } from "@/components/MfaGate";
 import { useApp } from "@/lib/i18n";
 
 /**
@@ -17,6 +18,7 @@ export function MfaSetup({ onDone }: { onDone?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [armOff, setArmOff] = useState(false);
+  const [needCode, setNeedCode] = useState(false);
 
   async function load() {
     try {
@@ -67,6 +69,10 @@ export function MfaSetup({ onDone }: { onDone?: () => void }) {
       setArmOff(true);
       return;
     }
+    if (!status.verifiedNow) {
+      setNeedCode(true);
+      return;
+    }
     const { error } = await createClient().auth.mfa.unenroll({ factorId: status.factorId });
     setArmOff(false);
     setMsg(error ? t("To turn it off, sign in again with your code first.") : t("Two-step verification is off."));
@@ -81,7 +87,7 @@ export function MfaSetup({ onDone }: { onDone?: () => void }) {
           <p className="text-sm font-medium">{t("Two-step verification")}</p>
           <p className="faint text-xs">
             {status?.enrolled
-              ? t("On — you'll enter a 6-digit code from your authenticator app when you sign in.")
+              ? t("On — we'll ask for a code from your authenticator app before sensitive actions, like connecting a bank.")
               : t("Protect your account with a code from an authenticator app. Required to connect a bank.")}
           </p>
         </div>
@@ -142,6 +148,22 @@ export function MfaSetup({ onDone }: { onDone?: () => void }) {
         >
           {armOff ? t("Tap again to turn off") : t("Turn off")}
         </button>
+      )}
+      {needCode && (
+        <div className="mt-4">
+          <MfaCodeCard
+            reason={t("Confirm with your code to turn off two-step verification.")}
+            onDone={async () => {
+              setNeedCode(false);
+              await load();
+              const { error } = await createClient().auth.mfa.unenroll({ factorId: status!.factorId! });
+              setArmOff(false);
+              setMsg(error ? error.message : t("Two-step verification is off."));
+              load();
+            }}
+            onCancel={() => { setNeedCode(false); setArmOff(false); }}
+          />
+        </div>
       )}
       {msg && <p className="muted mt-3 text-sm">{msg}</p>}
     </div>

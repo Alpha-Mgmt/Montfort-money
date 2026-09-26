@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Wordmark } from "@/components/Logo";
+import { PasswordInput, PasswordRules, passwordProblems } from "@/components/PasswordInput";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,8 +24,9 @@ export default function SignupPage() {
       setError("Please enter your full name (first and last).");
       return;
     }
-    if (password.length < 8) {
-      setError("Password needs at least 8 characters.");
+    const weak = passwordProblems(password);
+    if (weak.length) {
+      setError(`Make your password stronger: ${weak.join(", ")}.`);
       return;
     }
 
@@ -131,15 +133,8 @@ export default function SignupPage() {
             <label className="label" htmlFor="password">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="new-password" />
+            <PasswordRules value={password} />
           </div>
           {error && (
             <p className="text-sm" style={{ color: "var(--over)" }}>

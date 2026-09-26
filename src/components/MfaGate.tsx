@@ -1,39 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { verifyCode } from "@/lib/mfa";
+import Link from "next/link";
+import { mfaStatus, verifyCode } from "@/lib/mfa";
 import { useApp } from "@/lib/i18n";
 
 /**
- * If the account has two-step verification and this session hasn't passed it
- * yet, ask for the 6-digit code before showing anything else.
+ * Step-up check: ask for the 6-digit code only when an action needs it
+ * (connecting a bank, owner tools, turning 2FA off). Once passed, the
+ * session stays verified — no more codes until the next sign-in.
  */
-export function MfaGate({ children }: { children: React.ReactNode }) {
+export function MfaCodeCard({
+  reason,
+  onDone,
+  onCancel,
+}: {
+  reason?: string;
+  onDone: () => void;
+  onCancel?: () => void;
+}) {
   const { t } = useApp();
-  const [state, setState] = useState<"checking" | "need" | "ok">("checking");
+  const [state, setState] = useState<"checking" | "need" | "setup">("checking");
   const [factorId, setFactorId] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel()
-      .then(async ({ data }) => {
-        if (data && data.nextLevel === "aal2" && data.currentLevel !== "aal2") {
-          const { data: f } = await supabase.auth.mfa.listFactors();
-          const totp = (f?.totp ?? []).find((x) => x.status === "verified");
-          if (totp) {
-            setFactorId(totp.id);
-            setState("need");
-            return;
-          }
-        }
-        setState("ok");
+    mfaStatus()
+      .then((m) => {
+        if (m.verifiedNow) return onDone();
+        if (!m.enrolled || !m.factorId) return setState("setup");
+        setFactorId(m.factorId);
+        setState("need");
       })
-      .catch(() => setState("ok"));
+      .catch(() => setState("setup"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function submit() {
@@ -47,23 +49,24 @@ export function MfaGate({ children }: { children: React.ReactNode }) {
       setCode("");
       return;
     }
-    setState("ok");
+    onDone();
   }
 
-  async function signOut() {
-    await createClient().auth.signOut();
-    window.location.href = "/login";
-  }
-
-  if (state === "ok") return <>{children}</>;
   if (state === "checking") return null;
+  if (state === "setup")
+    return (
+      <div className="card-soft rounded-2xl p-4 text-sm">
+        <p>{t("Turn on two-step verification first (More → Settings → Security).")}</p>
+        <Link href="/app/settings" className="btn btn-primary mt-3 inline-flex !py-1.5 text-sm">{t("Go to Security")}</Link>
+      </div>
+    );
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: "var(--bg)" }}>
-      <div className="card w-full max-w-sm p-6 text-center">
-        <p className="font-display text-xl font-semibold">{t("Enter your code")}</p>
-        <p className="muted mt-2 text-sm">{t("Open your authenticator app and type the 6-digit code for Montfort Money.")}</p>
+    <div className="card-soft rounded-2xl p-4">
+      <p className="font-semibold">{t("Enter your code")}</p>
+      <p className="muted mt-1 text-sm">{reason ?? t("Open your authenticator app and type the 6-digit code for Montfort Money.")}</p>
+      <div className="mt-3 flex gap-2">
         <input
-          className="input mt-5 w-full text-center font-mono text-2xl tracking-[0.4em]"
+          className="input flex-1 text-center font-mono text-xl tracking-[0.35em]"
           inputMode="numeric"
           autoComplete="one-time-code"
           autoFocus
@@ -73,18 +76,14 @@ export function MfaGate({ children }: { children: React.ReactNode }) {
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
           onKeyDown={(e) => e.key === "Enter" && code.length === 6 && submit()}
         />
-        {err && (
-          <p className="mt-2 text-sm" style={{ color: "var(--over)" }}>
-            {err}
-          </p>
-        )}
-        <button className="btn btn-primary mt-4 w-full" onClick={submit} disabled={busy || code.length !== 6}>
+        <button className="btn btn-primary" onClick={submit} disabled={busy || code.length !== 6}>
           {busy ? "…" : t("Verify")}
         </button>
-        <button className="muted mt-3 text-xs underline-offset-4 hover:underline" onClick={signOut}>
-          {t("Sign out")}
-        </button>
       </div>
+      {err && <p className="mt-2 text-sm" style={{ color: "var(--over)" }}>{err}</p>}
+      {onCancel && (
+        <button className="muted mt-2 text-xs underline-offset-4 hover:underline" onClick={onCancel}>{t("Cancel")}</button>
+      )}
     </div>
   );
 }

@@ -12,7 +12,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { setFormatLocale } from "@/lib/format";
 import { es } from "@/lib/dict-es";
-import { MfaGate } from "@/components/MfaGate";
 
 export type Lang = "en" | "es";
 export type Space = "personal" | "business" | "shared";
@@ -213,7 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppCtx.Provider value={value}>
       {langReady ? (
         <Fragment key={lang}>
-          <MfaGate>{children}</MfaGate>
+          {children}
         </Fragment>
       ) : null}
     </AppCtx.Provider>

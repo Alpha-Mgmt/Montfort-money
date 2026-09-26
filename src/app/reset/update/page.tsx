@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Wordmark } from "@/components/Logo";
+import { PasswordInput, PasswordRules, passwordProblems } from "@/components/PasswordInput";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -13,8 +14,9 @@ export default function UpdatePasswordPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      setError("Password needs at least 8 characters.");
+    const weak = passwordProblems(password);
+    if (weak.length) {
+      setError(`Make your password stronger: ${weak.join(", ")}.`);
       return;
     }
     setBusy(true);
@@ -44,15 +46,8 @@ export default function UpdatePasswordPage() {
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <div>
             <label className="label" htmlFor="password">New password</label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="new-password" />
+            <PasswordRules value={password} />
           </div>
           {error && <p className="text-sm" style={{ color: "var(--over)" }}>{error}</p>}
           <button className="btn btn-primary" disabled={busy}>

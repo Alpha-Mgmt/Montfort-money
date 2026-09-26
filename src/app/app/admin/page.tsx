@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { MfaCodeCard } from "@/components/MfaGate";
 
 type Row = {
   id: string;
@@ -154,9 +155,7 @@ export default function AdminPage() {
   if (state === "mfa")
     return (
       <div className="card p-6">
-        <p className="font-medium">Activa la verificación en dos pasos para entrar al panel.</p>
-        <p className="muted mt-1 text-sm">El panel muestra datos de todos los usuarios, así que exige 2FA en esta sesión.</p>
-        <Link href="/app/settings" className="btn btn-primary mt-4 inline-flex">Ir a Seguridad</Link>
+        <MfaCodeCard reason="El panel muestra datos de todos los usuarios; confirma con tu código." onDone={load} />
       </div>
     );
   if (state === "error")

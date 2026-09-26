@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Wordmark } from "@/components/Logo";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export default function LoginPage() {
       setBusy(false);
       return;
     }
+    // record the sign-in (device + place) for Security → recent sign-ins
+    fetch("/api/security/login", { method: "POST" }).catch(() => {});
     router.push("/app");
     router.refresh();
   }
@@ -56,15 +59,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="label" htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+            <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
           </div>
           {error && <p className="text-sm" style={{ color: "var(--over)" }}>{error}</p>}
           <button className="btn btn-primary mt-1" disabled={busy}>
