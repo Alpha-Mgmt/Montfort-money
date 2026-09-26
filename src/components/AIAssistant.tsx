@@ -6,7 +6,14 @@ import { tr, useApp } from "@/lib/i18n";
 
 type Insight = { tone: "warn" | "good" | "tip"; text: string };
 type Analysis = { headline: string; insights: Insight[]; generated?: boolean };
-type Msg = { role: "user" | "assistant"; content?: string; analysis?: Analysis };
+type Proposal = { action: any; summary: string };
+type Msg = {
+  role: "user" | "assistant";
+  content?: string;
+  analysis?: Analysis;
+  actions?: Proposal[];
+  status?: "pending" | "applying" | "done" | "cancelled" | "failed";
+};
 
 const toneColor: Record<string, string> = {
   warn: "var(--over)",
@@ -164,9 +171,14 @@ export function AIAssistant({ month }: { month: string }) {
         }),
       });
       const data = await r.json();
+      const actions: Proposal[] = Array.isArray(data?.actions) ? data.actions : [];
       setMessages([
         ...next,
-        { role: "assistant", content: data?.reply ?? tr("Sorry, I couldn't answer that.") },
+        {
+          role: "assistant",
+          content: data?.reply ?? tr("Sorry, I couldn't answer that."),
+          ...(actions.length ? { actions, status: "pending" as const } : {}),
+        },
       ]);
     } catch {
       setMessages([
@@ -175,6 +187,28 @@ export function AIAssistant({ month }: { month: string }) {
       ]);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function applyActions(index: number) {
+    const m = messages[index];
+    if (!m?.actions?.length || m.status !== "pending") return;
+    const mark = (status: Msg["status"]) =>
+      setMessages((ms) => ms.map((x, i) => (i === index ? { ...x, status } : x)));
+    mark("applying");
+    try {
+      const r = await fetch("/api/ask/apply", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ actions: m.actions.map((a) => a.action) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      const ok = r.ok && (j.results ?? []).every((x: any) => x.ok);
+      mark(ok ? "done" : "failed");
+      // let the screen reload its numbers
+      window.dispatchEvent(new CustomEvent("mf:data-changed"));
+    } catch {
+      mark("failed");
     }
   }
 
@@ -310,7 +344,33 @@ export function AIAssistant({ month }: { month: string }) {
                         ))}
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      <>
+                        <p className="whitespace-pre-wrap">{richText(m.content ?? "")}</p>
+                        {m.actions?.length ? (
+                          <div className="mt-2 grid gap-1.5 rounded-xl p-2.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                            {m.actions.map((a, k) => (
+                              <p key={k} className="text-xs leading-relaxed">• {a.summary}</p>
+                            ))}
+                            {m.status === "pending" || m.status === "applying" ? (
+                              <div className="mt-1 flex gap-2">
+                                <button className="btn btn-primary !px-3 !py-1 !text-xs" disabled={m.status === "applying"} onClick={() => applyActions(i)}>
+                                  {m.status === "applying" ? tr("Applying…") : tr("Apply")}
+                                </button>
+                                <button className="btn btn-ghost !px-3 !py-1 !text-xs" disabled={m.status === "applying"}
+                                  onClick={() => setMessages((ms) => ms.map((x, j) => (j === i ? { ...x, status: "cancelled" } : x)))}>
+                                  {tr("Cancel")}
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-xs font-semibold" style={{ color: m.status === "done" ? "var(--mint)" : m.status === "failed" ? "var(--over)" : undefined }}>
+                                {m.status === "done" ? tr("Done ✓") : m.status === "failed" ? tr("Couldn't apply — nothing was changed or only part was.") : tr("Cancelled")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          m.content && <ShareReply text={m.content} />
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -350,6 +410,46 @@ export function AIAssistant({ month }: { month: string }) {
           {feedbackMode ? tr("Send") : tr("Ask")}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** **bold** → <b>; everything else stays plain text (no HTML injection). */
+function richText(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? <b key={i}>{part.slice(2, -2)}</b> : part
+  );
+}
+
+/** Share (phone share sheet → WhatsApp, Messages…) or copy an answer. */
+function ShareReply({ text }: { text: string }) {
+  const [done, setDone] = useState("");
+  const plain = text.replace(/\*\*/g, "");
+  async function share() {
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) {
+        await (navigator as any).share({ text: plain });
+        return;
+      }
+      await navigator.clipboard.writeText(plain);
+      setDone(tr("Copied"));
+      setTimeout(() => setDone(""), 1800);
+    } catch {}
+  }
+  return (
+    <div className="mt-1.5 flex gap-3 text-xs">
+      <button className="font-semibold hover:underline" style={{ color: "var(--mint)" }} onClick={share}>
+        {tr("Share")}
+      </button>
+      <a
+        className="faint hover:underline"
+        href={`https://wa.me/?text=${encodeURIComponent(plain)}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        WhatsApp
+      </a>
+      {done && <span className="faint">{done}</span>}
     </div>
   );
 }

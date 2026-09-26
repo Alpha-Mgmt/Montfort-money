@@ -28,9 +28,11 @@ import { CategorySelect, categoryPath } from "@/components/CategorySelect";
 import { ForecastChart } from "@/components/ForecastChart";
 import { FrequencyPicker } from "@/components/FrequencyPicker";
 import { WhenPicker, whenFor } from "@/components/WhenPicker";
+import { TaxEditor } from "@/components/TaxEditor";
 import { ProgressBar } from "@/components/ProgressBar";
 import type {
   Schedule,
+  Taxes,
   Account,
   Category,
   Debt,
@@ -62,6 +64,7 @@ type Draft = {
   start_date: string;
   end_date: string;
   schedule: Schedule | null;
+  taxes: Taxes | null;
 };
 
 const emptyDraft = (kind: Kind): Draft => ({
@@ -74,6 +77,7 @@ const emptyDraft = (kind: Kind): Draft => ({
   start_date: todayISO(),
   end_date: "",
   schedule: { day: Number(todayISO().slice(8, 10)) },
+  taxes: null,
 });
 
 export default function ForecastPage() {
@@ -147,6 +151,7 @@ export default function ForecastPage() {
       start_date: it.start_date,
       end_date: it.end_date ?? "",
       schedule: it.schedule ?? null,
+      taxes: it.taxes ?? null,
     });
     setOpen(true);
   }
@@ -167,6 +172,7 @@ export default function ForecastPage() {
       start_date: draft.start_date,
       end_date: draft.end_date || null,
       schedule: draft.schedule,
+      taxes: draft.kind === "income" ? draft.taxes : null,
     };
     if (draft.id) {
       await supabase.from("recurring_items").update(row).eq("id", draft.id);
@@ -502,6 +508,15 @@ export default function ForecastPage() {
                 value={draft.amount}
                 onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
               />
+              {draft.kind === "income" && (
+                <div className="mt-2">
+                  <TaxEditor
+                    amount={draft.amount}
+                    taxes={draft.taxes}
+                    onChange={(v) => setDraft({ ...draft, amount: v.amount, taxes: v.taxes })}
+                  />
+                </div>
+              )}
             </div>
             <div>
               <label className="label">{tr("Repeats")}</label>

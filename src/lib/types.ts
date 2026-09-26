@@ -39,6 +39,24 @@ export type Frequency =
  */
 export type Schedule = { day?: number; days?: number[]; dates?: string[] };
 
+/**
+ * Taxes & deductions of ONE paycheck (income plan items). The item's
+ * `amount` is always the take-home (net); `gross` is before taxes.
+ * simple: one number (pct of gross, or a dollar amount)
+ * detailed: federal / state / social security / medicare / other lines
+ */
+export type Taxes = {
+  gross: number;
+  mode: "simple" | "detailed";
+  pct?: number | null;
+  total?: number | null;
+  federal?: number | null;
+  state?: number | null;
+  social_security?: number | null;
+  medicare?: number | null;
+  other?: { name: string; amount: number }[];
+};
+
 export type RecurringItem = {
   id: string;
   title: string;
@@ -51,6 +69,7 @@ export type RecurringItem = {
   end_date: string | null;
   active: boolean;
   schedule?: Schedule | null;
+  taxes?: Taxes | null;
 };
 
 export type Transaction = {

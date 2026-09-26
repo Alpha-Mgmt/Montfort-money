@@ -130,6 +130,14 @@ export default function MonthPage() {
   const [showDebts, setShowDebts] = useState(true);
   const [showInvs, setShowInvs] = useState(true);
 
+  // Montfort AI applied a change → reload
+  useEffect(() => {
+    const h = () => load();
+    window.addEventListener("mf:data-changed", h);
+    return () => window.removeEventListener("mf:data-changed", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
+
   async function load(m = month) {
     const supabase = createClient();
     const [{ data: profile }, c, a, t, r, k, d, iv, gl, pl] = await Promise.all([

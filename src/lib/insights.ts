@@ -212,6 +212,17 @@ export type AskInput = Omit<InsightInput, "txs"> & {
 
 export type AskContext = {
   monthSummary: MonthSummary;
+  /** the viewed month, category by category, the way the Home screen shows it */
+  thisMonthByCategory: {
+    kind: string;
+    group: string | null;
+    category: string;
+    planned: number;
+    actual: number;
+    planLines: { title: string; amount: number; repeats: string; timesThisMonth: number; total: number; dates: string[] }[];
+  }[];
+  /** every transaction logged in the viewed month (newest first, max 200) */
+  thisMonthTransactions: { date: string; kind: string; amount: number; category: string; note: string | null }[];
   yearToDate: {
     year: number;
     income: number;
@@ -249,8 +260,67 @@ export function buildAskContext(input: AskInput): AskContext {
     .map((e) => ({ ...e, total: round(e.total) }))
     .sort((a, b) => b.total - a.total);
 
+  // ---- this month, category by category (groups = parent categories) ----
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const lastDay = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
+  const monthEnd = `${month.slice(0, 8)}${String(lastDay).padStart(2, "0")}`;
+  const rows = new Map<string, AskContext["thisMonthByCategory"][number]>();
+  const rowFor = (catId: string | null, kind: string) => {
+    const key = `${catId ?? "none"}|${kind}`;
+    let r = rows.get(key);
+    if (!r) {
+      const c = catId ? byId.get(catId) : undefined;
+      const parent = c?.parent_id ? byId.get(c.parent_id) : undefined;
+      r = { kind, group: parent?.name ?? null, category: c?.name ?? "Uncategorized", planned: 0, actual: 0, planLines: [] };
+      rows.set(key, r);
+    }
+    return r;
+  };
+  for (const it of input.recurring) {
+    if (!it.active) continue;
+    const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
+    if (n === 0) continue;
+    const r = rowFor(it.category_id, it.kind);
+    const total = it.amount * n;
+    r.planned += total;
+    r.planLines.push({
+      title: it.title,
+      amount: round(it.amount),
+      repeats: it.frequency,
+      timesThisMonth: n,
+      total: round(total),
+      dates: occurrenceDates(it, month, monthEnd).slice(0, 10),
+    });
+  }
+  for (const b of input.budgets) {
+    const c = byId.get(b.category_id);
+    if (!c) continue;
+    const r = rowFor(c.id, c.kind);
+    if (r.planLines.length === 0) r.planned = b.limit_amount;
+  }
+  for (const t of monthTxs) {
+    if (t.debt_id || t.investment_id || t.goal_id) continue;
+    rowFor(t.category_id, t.kind).actual += t.amount;
+  }
+  const thisMonthByCategory = [...rows.values()]
+    .map((r) => ({ ...r, planned: round(r.planned), actual: round(r.actual) }))
+    .sort((a, b) => (a.kind === b.kind ? b.planned + b.actual - (a.planned + a.actual) : a.kind === "income" ? -1 : 1));
+
+  const thisMonthTransactions = [...monthTxs]
+    .sort((a, b) => (a.tx_date < b.tx_date ? 1 : -1))
+    .slice(0, 200)
+    .map((t) => ({
+      date: t.tx_date,
+      kind: t.kind,
+      amount: round(t.amount),
+      category: t.category_id ? (catName.get(t.category_id) ?? "Uncategorized") : "Uncategorized",
+      note: t.note ?? null,
+    }));
+
   return {
     monthSummary,
+    thisMonthByCategory,
+    thisMonthTransactions,
     yearToDate: {
       year: Number(month.slice(0, 4)),
       income: round(ytdIncome),

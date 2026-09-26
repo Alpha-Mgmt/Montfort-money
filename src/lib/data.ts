@@ -128,7 +128,7 @@ export async function fetchRecurring(): Promise<RecurringItem[]> {
   const { data } = await supabase
     .from("recurring_items")
     .select(
-      "id,title,kind,amount,category_id,account_id,frequency,start_date,end_date,active,schedule"
+      "id,title,kind,amount,category_id,account_id,frequency,start_date,end_date,active,schedule,taxes"
     )
     .order("kind")
     .order("created_at");

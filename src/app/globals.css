@@ -541,3 +541,7 @@ html.theme-light .text-grad {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Futuro chart — validated categorical trio (cash / investments / debt) */
+:root { --fut-cash: #1aa476; --fut-inv: #7f76e6; --fut-debt: #c57a30; }
+html.theme-light { --fut-cash: #16a88c; --fut-inv: #6c63d9; --fut-debt: #d9822b; }

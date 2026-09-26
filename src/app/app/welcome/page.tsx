@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Wordmark } from "@/components/Logo";
 import { monthStartISO, todayISO } from "@/lib/format";
-import type { Category, Frequency } from "@/lib/types";
+import type { Category, Frequency, Taxes } from "@/lib/types";
 import { tr } from "@/lib/i18n";
 import { WhenPicker, whenFor, type When } from "@/components/WhenPicker";
+import { TaxEditor } from "@/components/TaxEditor";
 
-type Line = { name: string; amount: string; freq: Frequency; when: When | null };
+type Line = { name: string; amount: string; freq: Frequency; when: When | null; taxes: Taxes | null };
 type CatBlock = { name: string; lines: Line[] };
 type DebtRow = { name: string; balance: string; apr: string; payment: string; dueDay: string };
 type InvRow = { name: string; balance: string; apr: string; monthly: string };
@@ -28,7 +29,7 @@ const freqOptions: { v: Frequency; label: string }[] = [
   { v: "once", label: "One-time" },
 ];
 
-const emptyLine = (): Line => ({ name: "", amount: "", freq: "monthly", when: null });
+const emptyLine = (): Line => ({ name: "", amount: "", freq: "monthly", when: null, taxes: null });
 // the date anchor a line starts from before the user picks days
 const anchorFor = (kind: "income" | "expense") => (kind === "income" ? todayISO() : monthStartISO());
 const emptyBlock = (): CatBlock => ({ name: "", lines: [emptyLine()] });
@@ -145,6 +146,16 @@ function CategoryLinesBuilder({
                   onChange={(w) => setLine(i, k, { when: w })}
                 />
               </div>
+              {kind === "income" && (
+                <div className="basis-full pl-1">
+                  <TaxEditor
+                    compact
+                    amount={l.amount}
+                    taxes={l.taxes}
+                    onChange={(v) => setLine(i, k, { amount: v.amount, taxes: v.taxes })}
+                  />
+                </div>
+              )}
             </div>
           ))}
           <button
@@ -173,6 +184,7 @@ export default function WelcomePage() {
   const [ready, setReady] = useState(false);
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [warn, setWarn] = useState("");
   const [name, setName] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
 
@@ -251,6 +263,7 @@ export default function WelcomePage() {
           // the days the user picked, or the same defaults as before
           start_date: l.when?.start_date ?? whenFor(l.freq, kind === "income" ? todayISO() : monthStartISO()).start_date,
           schedule: l.when?.schedule ?? whenFor(l.freq, kind === "income" ? todayISO() : monthStartISO()).schedule,
+          taxes: kind === "income" ? l.taxes : null,
         });
       }
     }
@@ -322,6 +335,14 @@ export default function WelcomePage() {
   }
 
   async function next() {
+    // don't silently drop a line that has a name but no amount
+    const blocks = step === 1 ? income : step === 2 ? expenses : [];
+    const missing = blocks.flatMap((b) => b.lines).filter((l) => l.name.trim() && !(parseFloat(l.amount) > 0));
+    if (missing.length) {
+      setWarn(tr("Add an amount to: {v}", { v: missing.map((l) => l.name.trim()).join(", ") }));
+      return;
+    }
+    setWarn("");
     setBusy(true);
     try {
       if (step === 1) await saveCategoryBlocks(income, "income");
@@ -585,6 +606,11 @@ export default function WelcomePage() {
             </div>
           )}
 
+          {warn && (
+            <p className="mt-4 text-sm" style={{ color: "var(--warn)" }}>
+              {warn}
+            </p>
+          )}
           <div className="mt-6 flex items-center justify-between gap-3">
             {step === 0 ? (
               <button className="faint text-sm hover:underline" onClick={finish}>
