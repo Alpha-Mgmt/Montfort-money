@@ -1312,12 +1312,11 @@ export default function MonthPage() {
                   <div key={x.key}>
                     <button className="flex w-full items-baseline justify-between py-0.5" onClick={() => toggle(x.key)}>
                       <span>
-                        {names[x.key]} <span className="faint text-xs">{payOpen.has(x.key) ? "▴" : "▾"}</span>
+                        {names[x.key]}{" "}
+                        <span className="faint text-xs">{((x.total / gross) * 100).toFixed(1)}%</span>{" "}
+                        <span className="faint text-xs">{payOpen.has(x.key) ? "▴" : "▾"}</span>
                       </span>
-                      <span>
-                        <span className="faint mr-2 text-xs">{((x.total / gross) * 100).toFixed(1)}%</span>
-                        <span style={{ color: "var(--over)" }}>−{money(x.total)}</span>
-                      </span>
+                      <span style={{ color: "var(--over)" }}>−{money(x.total)}</span>
                     </button>
                     {payOpen.has(x.key) && (
                       <div className="mb-1 grid gap-0.5 pl-3">
@@ -1343,6 +1342,7 @@ export default function MonthPage() {
                             <div key={l.label} className="muted flex items-center justify-between gap-2 text-xs">
                               <span className="flex items-center gap-1.5">
                                 {tr(l.label)}
+                                <span className="faint">{((l.amount / gross) * 100).toFixed(1)}%</span>
                                 {isEditableKey(l.key) && (
                                   <button
                                     className="faint hover:underline"
@@ -1353,9 +1353,7 @@ export default function MonthPage() {
                                   </button>
                                 )}
                               </span>
-                              <span>
-                                <span className="faint mr-2">{((l.amount / gross) * 100).toFixed(1)}%</span>−{money(l.amount)}
-                              </span>
+                              <span>−{money(l.amount)}</span>
                             </div>
                           )
                         )}
@@ -1378,11 +1376,11 @@ export default function MonthPage() {
                   </button>
                 )}
                 <div className="flex justify-between pt-0.5 font-semibold">
-                  <span>{tr("Total deductions")}</span>
                   <span>
-                    <span className="faint mr-2 text-xs font-normal">{((dedTotal / gross) * 100).toFixed(1)}%</span>
-                    <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
+                    {tr("Total deductions")}{" "}
+                    <span className="faint text-xs font-normal">{((dedTotal / gross) * 100).toFixed(1)}%</span>
                   </span>
+                  <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
                 </div>
               </>
             )}
