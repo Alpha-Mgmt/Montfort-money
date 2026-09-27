@@ -1,11 +1,11 @@
 {
   "name": "Montfort Money",
   "short_name": "Montfort",
-  "description": "Budgets, spending and money tasks in one place.",
+  "description": "Tu dinero, tu plan y tu futuro en un solo lugar. Your money, your plan and your future in one place.",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#070b0f",
-  "theme_color": "#070b0f",
+  "background_color": "#f4f8fc",
+  "theme_color": "#f4f8fc",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -22,6 +22,36 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "id": "/app",
+  "scope": "/",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Resumen",
+      "short_name": "Resumen",
+      "url": "/app/summary",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Futuro",
+      "short_name": "Futuro",
+      "url": "/app/future",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

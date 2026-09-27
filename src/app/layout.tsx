@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
+import { RegisterSW } from "@/components/RegisterSW";
 
 // Fonts load in the browser at runtime (see <link> below) so the build
 // never depends on fetching anything from Google — hermetic builds.
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Montfort Money",
   },
 };
@@ -54,6 +55,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <RegisterSW />
         <Analytics />
       </body>
     </html>

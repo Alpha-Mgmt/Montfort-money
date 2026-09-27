@@ -9,6 +9,8 @@ import { Sheet } from "@/components/Sheet";
 import { BankConnections } from "@/components/BankConnections";
 import { MfaSetup } from "@/components/MfaSetup";
 import { LoginActivity } from "@/components/LoginActivity";
+import { DeleteAccount } from "@/components/DeleteAccount";
+import { InstallApp } from "@/components/InstallApp";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
 import { visibleTools } from "@/components/nav-items";
 import { useApp } from "@/lib/i18n";
@@ -391,6 +393,8 @@ export default function SettingsPage() {
         </Link>
       )}
 
+      <InstallApp />
+
       <MfaSetup />
 
       <LoginActivity />
@@ -479,6 +483,7 @@ export default function SettingsPage() {
             {resetMsg}
           </p>
         )}
+        {email && <DeleteAccount email={email} />}
       </div>
 
       {/* Feedback */}

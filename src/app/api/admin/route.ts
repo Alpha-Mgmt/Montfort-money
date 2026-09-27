@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb, plaid } from "@/lib/plaid";
 import { isOwner } from "@/lib/admin";
+import { deleteUserEverywhere } from "@/lib/delete-user";
 import { currentUser } from "../plaid/_auth";
 
 export const runtime = "nodejs";
@@ -159,21 +160,7 @@ export async function DELETE(req: Request) {
   if (String(body?.confirm ?? "").trim().toLowerCase() !== (user.email ?? "").toLowerCase())
     return NextResponse.json({ error: "confirm_mismatch" }, { status: 400 });
 
-  // 1) revoke bank connections with Plaid
-  const { data: items } = await db.from("plaid_items").select("id,access_token").eq("user_id", id);
-  for (const it of (items ?? []) as any[]) {
-    try {
-      await plaid("/item/remove", { access_token: it.access_token });
-    } catch {}
-  }
-  // 2) receipt files (receipts/<user id>/...)
-  try {
-    const { data: files } = await db.storage.from("receipts").list(id, { limit: 1000 });
-    const paths = (files ?? []).map((f: any) => `${id}/${f.name}`);
-    if (paths.length) await db.storage.from("receipts").remove(paths);
-  } catch {}
-  // 3) the account itself — all app tables cascade
-  const { error: delErr } = await db.auth.admin.deleteUser(id);
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 502 });
-  return NextResponse.json({ ok: true, revoked_banks: (items ?? []).length });
+  const res = await deleteUserEverywhere(id);
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 502 });
+  return NextResponse.json({ ok: true, revoked_banks: res.revoked });
 }
