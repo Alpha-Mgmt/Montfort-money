@@ -879,4 +879,11 @@ export const es: Record<string, string> = {
   "No pay planned this month.": "No hay pagos planeados este mes.",
   "Hide deposits ▴": "Ocultar depósitos ▴",
   "Deposits & tracking ▾": "Depósitos y seguimiento ▾",
+  "e.g. Vision, Union dues": "p. ej. Visión, cuota sindical",
+  "Per paycheck": "Por cheque",
+  "Applies to every paycheck from that month on, raises included.": "Aplica a todos tus cheques desde ese mes, incluidos los de los aumentos.",
+  "Remove from {v0} on?": "¿Quitarla desde {v0}?",
+  "Yes, remove": "Sí, quitar",
+  "Remove deduction": "Quitar deducción",
+  "+ Add deduction": "+ Agregar deducción",
 };

@@ -38,3 +38,31 @@ export function taxTotal(t: Taxes | null | undefined): number {
 export function netOf(t: Taxes): number {
   return r2(Math.max(0, t.gross - taxTotal(t)));
 }
+
+/** Deduction keys that can be edited from the employer card. */
+export function isEditableKey(key: string): boolean {
+  return (TAX_KEYS as readonly string[]).includes(key) || key.startsWith("other:");
+}
+
+/** Does this paycheck have that deduction? */
+export function hasDeduction(t: Taxes | null | undefined, key: string): boolean {
+  if (!t || t.mode !== "detailed") return false;
+  if ((TAX_KEYS as readonly string[]).includes(key)) return Number(t[key as TaxKey] ?? 0) > 0;
+  const name = key.slice(6).toLowerCase();
+  return (t.other ?? []).some((o) => (o.name || "").toLowerCase() === name);
+}
+
+/** Set (or remove, with null) one deduction of a detailed paycheck. */
+export function setDeduction(t: Taxes, key: string, amount: number | null): Taxes | null {
+  if (t.mode !== "detailed") return null;
+  if ((TAX_KEYS as readonly string[]).includes(key)) return { ...t, [key]: amount ? r2(amount) : 0 };
+  if (!key.startsWith("other:")) return null;
+  const name = key.slice(6);
+  const other = [...(t.other ?? [])];
+  const i = other.findIndex((o) => (o.name || "").toLowerCase() === name.toLowerCase());
+  if (amount == null || amount <= 0) {
+    if (i >= 0) other.splice(i, 1);
+  } else if (i >= 0) other[i] = { ...other[i], amount: r2(amount) };
+  else other.push({ name, amount: r2(amount) });
+  return { ...t, other };
+}

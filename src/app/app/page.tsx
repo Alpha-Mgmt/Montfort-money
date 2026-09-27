@@ -34,7 +34,8 @@ import {
   toggleSkip,
 } from "@/lib/recurring";
 import { monthLabel } from "@/lib/format";
-import { taxParts } from "@/lib/taxes";
+import { hasDeduction, isEditableKey, netOf, setDeduction, taxParts } from "@/lib/taxes";
+import { DeductionEditor } from "@/components/DeductionEditor";
 import {
   GoalSheet,
   emptyGoalDraft,
@@ -239,6 +240,52 @@ export default function MonthPage() {
     window.dispatchEvent(new Event("mf:data-changed"));
   }
   useEffect(() => setClearAsk(false), [month]);
+
+  /** change / add / remove one paycheck deduction on every employer paycheck from a month on */
+  async function applyDeduction(memberIds: Set<string>, key: string, amount: number | null, fromYM: string, addIfMissing: boolean) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const from = `${fromYM}-01`;
+    const [fy, fm] = fromYM.split("-").map(Number);
+    const dayBefore = toISO(new Date(fy, fm - 1, 0));
+    for (const it of recurring) {
+      if (!it.active || it.kind !== "income" || !memberIds.has(it.category_id ?? "")) continue;
+      const t = it.taxes;
+      if (!t || t.mode !== "detailed" || !(t.gross > 0)) continue;
+      if (it.end_date && it.end_date < from) continue;
+      if (!addIfMissing && !hasDeduction(t, key)) continue;
+      const nt = setDeduction(t, key, amount);
+      if (!nt) continue;
+      const net = netOf(nt);
+      if (it.start_date >= from || it.frequency === "once") {
+        await supabase.from("recurring_items").update({ taxes: nt, amount: net }).eq("id", it.id);
+        continue;
+      }
+      const upto = new Date(fy + 2, fm - 1, 1);
+      const first = occurrenceDates(it, from, toISO(upto))[0];
+      if (!first) continue;
+      await supabase.from("recurring_items").update({ end_date: dayBefore }).eq("id", it.id);
+      await supabase.from("recurring_items").insert({
+        user_id: user.id,
+        title: it.title,
+        kind: it.kind,
+        amount: net,
+        category_id: it.category_id,
+        account_id: it.account_id,
+        frequency: it.frequency,
+        schedule: it.schedule ?? null,
+        taxes: nt,
+        start_date: first,
+        end_date: it.end_date,
+        active: true,
+      });
+    }
+    await load(month);
+    window.dispatchEvent(new Event("mf:data-changed"));
+  }
 
   const quickDate = month === monthStartISO() ? todayISO() : month;
 
@@ -1143,7 +1190,16 @@ export default function MonthPage() {
       return "other";
     };
     const grossBy = new Map<string, number>();
-    const ded = new Map<string, { group: string; label: string; amount: number }>();
+    const ded = new Map<string, { group: string; label: string; amount: number; key: string; perCheck: number }>();
+    const [edit, setEdit] = useState<{ key: string; label: string; perCheck: number } | "new" | null>(null);
+    const [busy, setBusy] = useState(false);
+    const fromYM = month.slice(0, 7);
+    const run = async (key: string, amount: number | null, ym: string, add: boolean) => {
+      setBusy(true);
+      await applyDeduction(ids, key, amount, ym, add);
+      setBusy(false);
+      setEdit(null);
+    };
     let gross = 0;
     let checks = 0;
     for (const it of recurring) {
@@ -1159,7 +1215,7 @@ export default function MonthPage() {
       for (const p of taxParts(it.taxes)) {
         const grp = dedGroup(p.key, p.label);
         const k = grp + "|" + p.label.toLowerCase();
-        const cur = ded.get(k) ?? { group: grp, label: p.label, amount: 0 };
+        const cur = ded.get(k) ?? { group: grp, label: p.label, amount: 0, key: p.key, perCheck: p.amount };
         cur.amount += p.amount * n;
         ded.set(k, cur);
       }
@@ -1244,16 +1300,54 @@ export default function MonthPage() {
                     </button>
                     {payOpen.has(x.key) && (
                       <div className="mb-1 grid gap-0.5 pl-3">
-                        {x.lines.map((l) => (
-                          <div key={l.label} className="muted flex justify-between text-xs">
-                            <span>{tr(l.label)}</span>
-                            <span>−{money(l.amount)}</span>
-                          </div>
-                        ))}
+                        {x.lines.map((l) =>
+                          edit !== "new" && edit?.key === l.key ? (
+                            <DeductionEditor
+                              key={l.key}
+                              label={tr(l.label)}
+                              perCheck={l.perCheck}
+                              fromMonth={fromYM}
+                              busy={busy}
+                              onSave={(a, ym) => run(l.key, a, ym, false)}
+                              onRemove={(ym) => run(l.key, null, ym, false)}
+                              onCancel={() => setEdit(null)}
+                            />
+                          ) : (
+                            <div key={l.label} className="muted flex items-center justify-between gap-2 text-xs">
+                              <span className="flex items-center gap-1.5">
+                                {tr(l.label)}
+                                {isEditableKey(l.key) && (
+                                  <button
+                                    className="faint hover:underline"
+                                    title={tr("Edit")}
+                                    onClick={() => setEdit({ key: l.key, label: l.label, perCheck: l.perCheck })}
+                                  >
+                                    ✎
+                                  </button>
+                                )}
+                              </span>
+                              <span>−{money(l.amount)}</span>
+                            </div>
+                          )
+                        )}
                       </div>
                     )}
                   </div>
                 ))}
+                {edit === "new" ? (
+                  <DeductionEditor
+                    isNew
+                    perCheck={0}
+                    fromMonth={fromYM}
+                    busy={busy}
+                    onSave={(a, ym, nm) => run(`other:${nm}`, a, ym, true)}
+                    onCancel={() => setEdit(null)}
+                  />
+                ) : (
+                  <button className="faint justify-self-start text-xs hover:underline" onClick={() => setEdit("new")}>
+                    {tr("+ Add deduction")}
+                  </button>
+                )}
                 <div className="flex justify-between pt-0.5 font-semibold">
                   <span>{tr("Total deductions")}</span>
                   <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
