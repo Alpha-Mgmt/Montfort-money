@@ -34,7 +34,7 @@ import {
   toggleSkip,
 } from "@/lib/recurring";
 import { monthLabel } from "@/lib/format";
-import { hasDeduction, isEditableKey, netOf, setDeduction, taxParts } from "@/lib/taxes";
+import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts } from "@/lib/taxes";
 import { DeductionEditor } from "@/components/DeductionEditor";
 import {
   GoalSheet,
@@ -241,8 +241,16 @@ export default function MonthPage() {
   }
   useEffect(() => setClearAsk(false), [month]);
 
-  /** change / add / remove one paycheck deduction on every employer paycheck from a month on */
-  async function applyDeduction(memberIds: Set<string>, key: string, amount: number | null, fromYM: string, addIfMissing: boolean) {
+  /** change / add / remove / rename one paycheck deduction on every employer paycheck.
+   *  amount undefined = keep amounts (rename only); renames apply to every paycheck. */
+  async function applyDeduction(
+    memberIds: Set<string>,
+    key: string,
+    amount: number | null | undefined,
+    fromYM: string,
+    addIfMissing: boolean,
+    rename?: string
+  ) {
     const supabase = createClient();
     const {
       data: { user },
@@ -251,13 +259,20 @@ export default function MonthPage() {
     const from = `${fromYM}-01`;
     const [fy, fm] = fromYM.split("-").map(Number);
     const dayBefore = toISO(new Date(fy, fm - 1, 0));
+    const keyN = rename ? `other:${rename}` : key;
     for (const it of recurring) {
       if (!it.active || it.kind !== "income" || !memberIds.has(it.category_id ?? "")) continue;
-      const t = it.taxes;
-      if (!t || t.mode !== "detailed" || !(t.gross > 0)) continue;
-      if (it.end_date && it.end_date < from) continue;
-      if (!addIfMissing && !hasDeduction(t, key)) continue;
-      const nt = setDeduction(t, key, amount);
+      const t0 = it.taxes;
+      if (!t0 || t0.mode !== "detailed" || !(t0.gross > 0)) continue;
+      const renamed = rename && key.startsWith("other:") ? renameDeduction(t0, key.slice(6), rename) : null;
+      const t = renamed ?? t0;
+      const dated =
+        amount !== undefined && !(it.end_date && it.end_date < from) && (addIfMissing || hasDeduction(t, keyN));
+      if (!dated) {
+        if (renamed) await supabase.from("recurring_items").update({ taxes: renamed }).eq("id", it.id);
+        continue;
+      }
+      const nt = setDeduction(t, keyN, amount ?? null);
       if (!nt) continue;
       const net = netOf(nt);
       if (it.start_date >= from || it.frequency === "once") {
@@ -266,8 +281,11 @@ export default function MonthPage() {
       }
       const upto = new Date(fy + 2, fm - 1, 1);
       const first = occurrenceDates(it, from, toISO(upto))[0];
-      if (!first) continue;
-      await supabase.from("recurring_items").update({ end_date: dayBefore }).eq("id", it.id);
+      if (!first) {
+        if (renamed) await supabase.from("recurring_items").update({ taxes: renamed }).eq("id", it.id);
+        continue;
+      }
+      await supabase.from("recurring_items").update({ end_date: dayBefore, taxes: t }).eq("id", it.id);
       await supabase.from("recurring_items").insert({
         user_id: user.id,
         title: it.title,
@@ -1194,9 +1212,9 @@ export default function MonthPage() {
     const [edit, setEdit] = useState<{ key: string; label: string; perCheck: number } | "new" | null>(null);
     const [busy, setBusy] = useState(false);
     const fromYM = month.slice(0, 7);
-    const run = async (key: string, amount: number | null, ym: string, add: boolean) => {
+    const run = async (key: string, amount: number | null | undefined, ym: string, add: boolean, rename?: string) => {
       setBusy(true);
-      await applyDeduction(ids, key, amount, ym, add);
+      await applyDeduction(ids, key, amount, ym, add, rename);
       setBusy(false);
       setEdit(null);
     };
@@ -1308,7 +1326,13 @@ export default function MonthPage() {
                               perCheck={l.perCheck}
                               fromMonth={fromYM}
                               busy={busy}
-                              onSave={(a, ym) => run(l.key, a, ym, false)}
+                              renamable={l.key.startsWith("other:")}
+                              onSave={(a, ym, nm) => {
+                                const newName = l.key.startsWith("other:") && nm && nm !== l.label ? nm : undefined;
+                                const changed = Math.abs(a - l.perCheck) > 0.004;
+                                if (!newName && !changed) return setEdit(null);
+                                run(l.key, changed ? a : undefined, ym, false, newName);
+                              }}
                               onRemove={(ym) => run(l.key, null, ym, false)}
                               onCancel={() => setEdit(null)}
                             />

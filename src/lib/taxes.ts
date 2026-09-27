@@ -66,3 +66,14 @@ export function setDeduction(t: Taxes, key: string, amount: number | null): Taxe
   else other.push({ name, amount: r2(amount) });
   return { ...t, other };
 }
+
+/** Rename one "other" deduction of a detailed paycheck (null if it doesn't have it). */
+export function renameDeduction(t: Taxes, oldName: string, newName: string): Taxes | null {
+  if (t.mode !== "detailed") return null;
+  const other = t.other ?? [];
+  const i = other.findIndex((o) => (o.name || "").toLowerCase() === oldName.toLowerCase());
+  if (i < 0) return null;
+  const next = [...other];
+  next[i] = { ...next[i], name: newName };
+  return { ...t, other: next };
+}
