@@ -1314,7 +1314,10 @@ export default function MonthPage() {
                       <span>
                         {names[x.key]} <span className="faint text-xs">{payOpen.has(x.key) ? "▴" : "▾"}</span>
                       </span>
-                      <span style={{ color: "var(--over)" }}>−{money(x.total)}</span>
+                      <span>
+                        <span className="faint mr-2 text-xs">{((x.total / gross) * 100).toFixed(1)}%</span>
+                        <span style={{ color: "var(--over)" }}>−{money(x.total)}</span>
+                      </span>
                     </button>
                     {payOpen.has(x.key) && (
                       <div className="mb-1 grid gap-0.5 pl-3">
@@ -1350,7 +1353,9 @@ export default function MonthPage() {
                                   </button>
                                 )}
                               </span>
-                              <span>−{money(l.amount)}</span>
+                              <span>
+                                <span className="faint mr-2">{((l.amount / gross) * 100).toFixed(1)}%</span>−{money(l.amount)}
+                              </span>
                             </div>
                           )
                         )}
@@ -1374,7 +1379,10 @@ export default function MonthPage() {
                 )}
                 <div className="flex justify-between pt-0.5 font-semibold">
                   <span>{tr("Total deductions")}</span>
-                  <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
+                  <span>
+                    <span className="faint mr-2 text-xs font-normal">{((dedTotal / gross) * 100).toFixed(1)}%</span>
+                    <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
+                  </span>
                 </div>
               </>
             )}
