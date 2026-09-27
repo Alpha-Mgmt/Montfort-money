@@ -12,6 +12,7 @@ import {
 import { money, monthLabel, todayISO } from "@/lib/format";
 import {
   frequencyLabels,
+  keepSkip,
   monthlyEquivalent,
   projectMonths,
 } from "@/lib/recurring";
@@ -171,7 +172,7 @@ export default function ForecastPage() {
       frequency: draft.frequency,
       start_date: draft.start_date,
       end_date: draft.end_date || null,
-      schedule: draft.schedule,
+      schedule: keepSkip(draft.schedule, items.find((i) => i.id === draft.id)?.schedule),
       taxes: draft.kind === "income" ? draft.taxes : null,
     };
     if (draft.id) {

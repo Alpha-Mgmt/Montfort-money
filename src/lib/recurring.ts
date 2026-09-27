@@ -29,6 +29,7 @@ export function occurrencesInMonth(
 
   if (start >= nextMonth) return 0;
   if (end && end < monthStart) return 0;
+  if (schedule?.skip?.includes(monthISO.slice(0, 7))) return 0;
 
   // one occurrence per month (the day only moves it inside the month)
   if (frequency === "monthly") return 1;
@@ -164,16 +165,18 @@ export function occurrenceDates(
   const hi = end && end < until ? end : until;
   if (lo > hi) return [];
   const sch = item.schedule ?? null;
+  const skip = new Set(sch?.skip ?? []);
 
   const out: string[] = [];
   const push = (d: Date) => {
-    if (d >= lo && d <= hi && out.length < 100) out.push(toISO(d));
+    const iso = toISO(d);
+    if (d >= lo && d <= hi && out.length < 100 && !skip.has(iso.slice(0, 7))) out.push(iso);
   };
   const clampDay = (y: number, m: number, day: number) =>
     new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
 
   if (item.frequency === "once") {
-    return start >= lo && start <= hi ? [toISO(start)] : [];
+    return start >= lo && start <= hi && !skip.has(toISO(start).slice(0, 7)) ? [toISO(start)] : [];
   }
 
   if (item.frequency === "monthly" || item.frequency === "quarterly" || item.frequency === "yearly") {
@@ -290,6 +293,24 @@ export function checksPerMonth(freq: Frequency): number {
     case "yearly":
       return 1 / 12;
   }
+}
+
+/** Keep the "cleared months" of an item when its schedule is edited. */
+export function keepSkip(next: Schedule | null | undefined, prev: Schedule | null | undefined): Schedule | null {
+  const skip = prev?.skip?.length ? prev.skip : null;
+  if (!skip) return next ?? null;
+  return { ...(next ?? {}), skip };
+}
+
+/** Add or remove one "YYYY-MM" from an item's cleared months. */
+export function toggleSkip(sch: Schedule | null | undefined, ym: string, on: boolean): Schedule | null {
+  const set = new Set(sch?.skip ?? []);
+  if (on) set.add(ym);
+  else set.delete(ym);
+  const { skip: _old, ...rest } = sch ?? {};
+  void _old;
+  const next: Schedule = set.size ? { ...rest, skip: [...set].sort() } : rest;
+  return Object.keys(next).length ? next : null;
 }
 
 export { toISO };

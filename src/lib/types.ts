@@ -36,8 +36,9 @@ export type Frequency =
  * day: day of month (monthly / quarterly), 1–31, clamped to short months
  * days: two days of month (twice a month), default [15, 30]
  * dates: "MM-DD" dates that repeat every year (twice a year / custom)
+ * skip: "YYYY-MM" months where the item does NOT happen ("clear this month")
  */
-export type Schedule = { day?: number; days?: number[]; dates?: string[] };
+export type Schedule = { day?: number; days?: number[]; dates?: string[]; skip?: string[] };
 
 /**
  * Taxes & deductions of ONE paycheck (income plan items). The item's

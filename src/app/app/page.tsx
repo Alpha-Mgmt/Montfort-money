@@ -31,8 +31,10 @@ import {
   occurrencesInMonth,
   projectMonths,
   toISO,
+  toggleSkip,
 } from "@/lib/recurring";
 import { monthLabel } from "@/lib/format";
+import { taxParts } from "@/lib/taxes";
 import {
   GoalSheet,
   emptyGoalDraft,
@@ -182,6 +184,84 @@ export default function MonthPage() {
   }, [month]);
 
   const isFuture = month > monthStartISO();
+
+  // paycheck breakdown for the month: gross pay → deductions → take-home
+  const payBreakdown = useMemo(() => {
+    const groupOf = (key: string, label: string) => {
+      if (!key.startsWith("other:")) return "taxes";
+      const l = label.toLowerCase();
+      if (/loan|pr[ée]stamo/.test(l)) return "loans";
+      if (/rent|renta|basura|trash|housing|casa/.test(l)) return "housing";
+      if (/401|dental|visi|vision|hsa|fsa|seguro|insurance|life|vida|medical|m[ée]dico|benefit/.test(l)) return "benefits";
+      return "other";
+    };
+    let gross = 0;
+    let net = 0;
+    let checks = 0;
+    const lines = new Map<string, { group: string; label: string; amount: number }>();
+    for (const it of recurring) {
+      if (!it.active || it.kind !== "income" || !it.taxes || !(it.taxes.gross > 0)) continue;
+      const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
+      if (!n) continue;
+      checks += n;
+      gross += it.taxes.gross * n;
+      net += it.amount * n;
+      for (const p of taxParts(it.taxes)) {
+        const g = groupOf(p.key, p.label);
+        const k = g + "|" + p.label.toLowerCase();
+        const cur = lines.get(k) ?? { group: g, label: p.label, amount: 0 };
+        cur.amount += p.amount * n;
+        lines.set(k, cur);
+      }
+    }
+    const order = ["taxes", "benefits", "loans", "housing", "other"];
+    const groups = order
+      .map((g) => {
+        const ls = [...lines.values()].filter((l) => l.group === g).sort((a, b) => b.amount - a.amount);
+        return { key: g, lines: ls, total: ls.reduce((s, l) => s + l.amount, 0) };
+      })
+      .filter((g) => g.lines.length > 0);
+    return { gross, net, checks, groups, deductions: gross - net };
+  }, [recurring, month]);
+  const [payOpen, setPayOpen] = useState<Set<string>>(new Set());
+
+  // "clear this month": the plan items skip this one month (other months untouched)
+  const monthKey = month.slice(0, 7);
+  const [clearAsk, setClearAsk] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
+  const planItemsHere = useMemo(
+    () =>
+      recurring.filter(
+        (it) =>
+          it.active &&
+          occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule) > 0
+      ),
+    [recurring, month]
+  );
+  const clearedHere = useMemo(
+    () => recurring.filter((it) => it.active && it.schedule?.skip?.includes(monthKey)),
+    [recurring, monthKey]
+  );
+  async function setMonthCleared(on: boolean) {
+    setClearBusy(true);
+    const supabase = createClient();
+    const targets = on ? planItemsHere : clearedHere;
+    await Promise.all(
+      targets.map((it) =>
+        supabase
+          .from("recurring_items")
+          .update({ schedule: toggleSkip(it.schedule, monthKey, on) })
+          .eq("id", it.id)
+      )
+    );
+    if (on) await supabase.from("budgets").delete().eq("month", month);
+    setClearBusy(false);
+    setClearAsk(false);
+    await load(month);
+    window.dispatchEvent(new Event("mf:data-changed"));
+  }
+  useEffect(() => setClearAsk(false), [month]);
+
   const quickDate = month === monthStartISO() ? todayISO() : month;
 
   // debt/investment transactions live in their own sections
@@ -1043,6 +1123,70 @@ export default function MonthPage() {
     );
   }
 
+  function PayBreakdown() {
+    const b = payBreakdown;
+    const names: Record<string, string> = {
+      taxes: tr("Taxes"),
+      benefits: tr("Benefits"),
+      loans: tr("Loans"),
+      housing: tr("Rent & housing"),
+      other: tr("Other"),
+    };
+    const toggle = (k: string) =>
+      setPayOpen((s) => {
+        const n = new Set(s);
+        if (n.has(k)) n.delete(k);
+        else n.add(k);
+        return n;
+      });
+    return (
+      <div className="mt-3 rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
+        <div className="flex items-baseline justify-between">
+          <span className="font-semibold">{tr("Gross pay")}</span>
+          <span className="font-display font-semibold">{money(b.gross)}</span>
+        </div>
+        <p className="faint text-xs">
+          {tr("Before taxes and deductions · {n} payments this month (plan)", { n: b.checks })}
+        </p>
+        <p className="faint mt-3 text-xs font-semibold uppercase tracking-wide">{tr("Deductions")}</p>
+        <div className="mt-1 grid gap-1">
+          {b.groups.map((g) => (
+            <div key={g.key}>
+              <button className="flex w-full items-baseline justify-between py-1 text-sm" onClick={() => toggle(g.key)}>
+                <span>
+                  {names[g.key]} <span className="faint text-xs">{payOpen.has(g.key) ? "▴" : "▾"}</span>
+                </span>
+                <span style={{ color: "var(--over)" }}>−{money(g.total)}</span>
+              </button>
+              {payOpen.has(g.key) && (
+                <div className="mb-1 grid gap-0.5 pl-3">
+                  {g.lines.map((l) => (
+                    <div key={l.label} className="muted flex justify-between text-xs">
+                      <span>{tr(l.label)}</span>
+                      <span>−{money(l.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="divider mt-2 flex items-baseline justify-between pt-2">
+          <span className="font-semibold">{tr("Take-home pay")}</span>
+          <span className="font-display font-semibold" style={{ color: "var(--mint)" }}>
+            {money(b.net)}
+          </span>
+        </div>
+        <p className="faint text-xs">
+          {tr("{amt} in deductions ({pct}% of your gross)", {
+            amt: money(b.deductions),
+            pct: b.gross ? Math.round((b.deductions / b.gross) * 100) : 0,
+          })}
+        </p>
+      </div>
+    );
+  }
+
   function KindSection({ kind }: { kind: Kind }) {
     const { groups, standalone } = buildCategoryTree(cats, kind);
     const total = kind === "income" ? incomeTotal : expenseTotal;
@@ -1098,6 +1242,7 @@ export default function MonthPage() {
           )}
         </div>
 
+        {kind === "income" && payBreakdown.gross > 0 && <PayBreakdown />}
       </div>
     );
   }
@@ -1316,6 +1461,47 @@ export default function MonthPage() {
               <p className="faint -mt-2 text-xs">
                 {tr("Future month — left side is what's logged, right side is the plan.")}
               </p>
+            )}
+            {(planItemsHere.length > 0 || clearedHere.length > 0 || plans.length > 0) && (
+              <div className="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                {clearedHere.length > 0 && (
+                  <span className="faint">
+                    {tr("Plan cleared for {v0} ({n} items).", { v0: monthLabel(month), n: clearedHere.length })}{" "}
+                    <button
+                      className="font-semibold underline-offset-4 hover:underline"
+                      style={{ color: "var(--mint)" }}
+                      disabled={clearBusy}
+                      onClick={() => setMonthCleared(false)}
+                    >
+                      {clearBusy ? tr("Working…") : tr("Restore plan")}
+                    </button>
+                  </span>
+                )}
+                {(planItemsHere.length > 0 || plans.length > 0) &&
+                  (clearAsk ? (
+                    <span className="faint">
+                      {tr("Remove {n} plan items only in {v0}? Other months stay the same.", {
+                        n: planItemsHere.length,
+                        v0: monthLabel(month),
+                      })}{" "}
+                      <button
+                        className="font-semibold underline-offset-4 hover:underline"
+                        style={{ color: "var(--over)" }}
+                        disabled={clearBusy}
+                        onClick={() => setMonthCleared(true)}
+                      >
+                        {clearBusy ? tr("Working…") : tr("Yes, clear")}
+                      </button>{" "}
+                      <button className="underline-offset-4 hover:underline" onClick={() => setClearAsk(false)}>
+                        {tr("Cancel")}
+                      </button>
+                    </span>
+                  ) : (
+                    <button className="faint underline-offset-4 hover:underline" onClick={() => setClearAsk(true)}>
+                      {tr("Clear this month's plan")}
+                    </button>
+                  ))}
+              </div>
             )}
 
             <KindSection kind="income" />
