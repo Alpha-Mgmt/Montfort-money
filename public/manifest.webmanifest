@@ -32,6 +32,17 @@
   ],
   "shortcuts": [
     {
+      "name": "Montfort AI",
+      "short_name": "AI",
+      "url": "/app?ai=1",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
       "name": "Resumen",
       "short_name": "Resumen",
       "url": "/app/summary",

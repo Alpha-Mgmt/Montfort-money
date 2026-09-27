@@ -71,6 +71,22 @@ export function AIAssistant({ month }: { month: string }) {
     setFeedbackMode(false);
   }, [month]);
 
+  // deep links for iPhone Shortcuts / Action Button / home-screen shortcut:
+  //   /app?ai=1            → open Montfort AI
+  //   /app?ask=<text>      → open it and ask right away (changes still need Apply)
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const ask = (qs.get("ask") ?? "").trim().slice(0, 500);
+    if (!ask && qs.get("ai") !== "1") return;
+    qs.delete("ask");
+    qs.delete("ai");
+    const rest = qs.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    setOpen(true);
+    if (ask) setTimeout(() => send(ask), 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
   }, [messages, busy, open]);
