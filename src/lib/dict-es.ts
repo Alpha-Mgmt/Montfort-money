@@ -872,4 +872,11 @@ export const es: Record<string, string> = {
   "Deductions": "Deducciones",
   "Take-home pay": "Te llega (neto)",
   "{amt} in deductions ({pct}% of your gross)": "{amt} en deducciones ({pct}% de tu sueldo bruto)",
+  "Your employer": "Tu empleador",
+  "received / take-home planned": "recibido / neto planeado",
+  "What you earn (gross)": "Lo que ganas (bruto)",
+  "Total deductions": "Total deducciones",
+  "No pay planned this month.": "No hay pagos planeados este mes.",
+  "Hide deposits ▴": "Ocultar depósitos ▴",
+  "Deposits & tracking ▾": "Depósitos y seguimiento ▾",
 };

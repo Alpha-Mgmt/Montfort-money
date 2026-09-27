@@ -185,44 +185,22 @@ export default function MonthPage() {
 
   const isFuture = month > monthStartISO();
 
-  // paycheck breakdown for the month: gross pay → deductions → take-home
-  const payBreakdown = useMemo(() => {
-    const groupOf = (key: string, label: string) => {
-      if (!key.startsWith("other:")) return "taxes";
-      const l = label.toLowerCase();
-      if (/loan|pr[ée]stamo/.test(l)) return "loans";
-      if (/rent|renta|basura|trash|housing|casa/.test(l)) return "housing";
-      if (/401|dental|visi|vision|hsa|fsa|seguro|insurance|life|vida|medical|m[ée]dico|benefit/.test(l)) return "benefits";
-      return "other";
-    };
-    let gross = 0;
-    let net = 0;
-    let checks = 0;
-    const lines = new Map<string, { group: string; label: string; amount: number }>();
-    for (const it of recurring) {
-      if (!it.active || it.kind !== "income" || !it.taxes || !(it.taxes.gross > 0)) continue;
-      const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
-      if (!n) continue;
-      checks += n;
-      gross += it.taxes.gross * n;
-      net += it.amount * n;
-      for (const p of taxParts(it.taxes)) {
-        const g = groupOf(p.key, p.label);
-        const k = g + "|" + p.label.toLowerCase();
-        const cur = lines.get(k) ?? { group: g, label: p.label, amount: 0 };
-        cur.amount += p.amount * n;
-        lines.set(k, cur);
-      }
-    }
-    const order = ["taxes", "benefits", "loans", "housing", "other"];
-    const groups = order
-      .map((g) => {
-        const ls = [...lines.values()].filter((l) => l.group === g).sort((a, b) => b.amount - a.amount);
-        return { key: g, lines: ls, total: ls.reduce((s, l) => s + l.amount, 0) };
-      })
-      .filter((g) => g.lines.length > 0);
-    return { gross, net, checks, groups, deductions: gross - net };
-  }, [recurring, month]);
+  // employer groups: income groups whose plan items carry paycheck taxes/deductions
+  const employerGroups = useMemo(() => {
+    const { groups: grouped, standalone } = buildCategoryTree(cats, "income");
+    const groups = [...grouped, ...standalone.map((c) => ({ ...c, children: [] as Category[] }))];
+    const taxed = new Set(
+      recurring
+        .filter((it) => it.active && it.kind === "income" && it.taxes && it.taxes.gross > 0)
+        .map((it) => it.category_id)
+    );
+    return groups.filter((g) => [g.id, ...g.children.map((c) => c.id)].some((id) => taxed.has(id)));
+  }, [cats, recurring]);
+  const employerIds = useMemo(() => new Set(employerGroups.map((g) => g.id)), [employerGroups]);
+  const employerMemberIds = useMemo(
+    () => new Set(employerGroups.flatMap((g) => [g.id, ...g.children.map((c) => c.id)])),
+    [employerGroups]
+  );
   const [payOpen, setPayOpen] = useState<Set<string>>(new Set());
 
   // "clear this month": the plan items skip this one month (other months untouched)
@@ -1153,8 +1131,48 @@ export default function MonthPage() {
     );
   }
 
-  function PayBreakdown() {
-    const b = payBreakdown;
+  function EmployerCard({ g }: { g: Category & { children: Category[] } }) {
+    const members = [g as Category, ...g.children];
+    const ids = new Set(members.map((c) => c.id));
+    const dedGroup = (key: string, label: string) => {
+      if (!key.startsWith("other:")) return "taxes";
+      const l = label.toLowerCase();
+      if (/loan|pr[ée]stamo/.test(l)) return "loans";
+      if (/rent|renta|basura|trash|housing|casa/.test(l)) return "housing";
+      if (/401|dental|visi|vision|hsa|fsa|seguro|insurance|life|vida|medical|m[ée]dico|benefit/.test(l)) return "benefits";
+      return "other";
+    };
+    const grossBy = new Map<string, number>();
+    const ded = new Map<string, { group: string; label: string; amount: number }>();
+    let gross = 0;
+    let checks = 0;
+    for (const it of recurring) {
+      if (!it.active || it.kind !== "income" || !ids.has(it.category_id ?? "")) continue;
+      const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
+      if (!n) continue;
+      const g1 = it.taxes && it.taxes.gross > 0 ? it.taxes.gross : it.amount;
+      const c = members.find((m) => m.id === it.category_id)!;
+      const name = c.id === g.id && g.children.length ? tr("Other") : c.name;
+      grossBy.set(name, (grossBy.get(name) ?? 0) + g1 * n);
+      gross += g1 * n;
+      if (it.frequency === "semimonthly" || it.frequency === "biweekly" || it.frequency === "weekly") checks += n;
+      for (const p of taxParts(it.taxes)) {
+        const grp = dedGroup(p.key, p.label);
+        const k = grp + "|" + p.label.toLowerCase();
+        const cur = ded.get(k) ?? { group: grp, label: p.label, amount: 0 };
+        cur.amount += p.amount * n;
+        ded.set(k, cur);
+      }
+    }
+    const groups = ["taxes", "benefits", "loans", "housing", "other"]
+      .map((k) => {
+        const ls = [...ded.values()].filter((l) => l.group === k).sort((a, b) => b.amount - a.amount);
+        return { key: k, lines: ls, total: ls.reduce((s2, l) => s2 + l.amount, 0) };
+      })
+      .filter((x) => x.lines.length > 0);
+    const dedTotal = groups.reduce((s2, x) => s2 + x.total, 0);
+    const planNet = members.reduce((s2, c) => s2 + planFor(c.id), 0);
+    const received = members.reduce((s2, c) => s2 + spentIn(c.id), 0);
     const names: Record<string, string> = {
       taxes: tr("Taxes"),
       benefits: tr("Benefits"),
@@ -1163,70 +1181,133 @@ export default function MonthPage() {
       other: tr("Other"),
     };
     const toggle = (k: string) =>
-      setPayOpen((s) => {
-        const n = new Set(s);
+      setPayOpen((st) => {
+        const n = new Set(st);
         if (n.has(k)) n.delete(k);
         else n.add(k);
         return n;
       });
+    const showTx = payOpen.has(`tx-${g.id}`);
     return (
-      <div className="mt-3 rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
-        <div className="flex items-baseline justify-between">
-          <span className="font-semibold">{tr("Gross pay")}</span>
-          <span className="font-display font-semibold">{money(b.gross)}</span>
+      <div className="card p-6">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="faint text-xs font-semibold uppercase tracking-wide">{tr("Your employer")}</p>
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+              <CategoryDot name={g.name} size={10} />
+              {g.name}
+            </h2>
+          </div>
+          <div className="text-right">
+            <p className="font-display font-semibold" style={{ color: "var(--mint)" }}>
+              {money(received)}
+              <span className="muted text-sm font-medium"> / {money(planNet)}</span>
+            </p>
+            <p className="faint text-xs">{tr("received / take-home planned")}</p>
+          </div>
         </div>
-        <p className="faint text-xs">
-          {tr("Before taxes and deductions · {n} payments this month (plan)", { n: b.checks })}
-        </p>
-        <p className="faint mt-3 text-xs font-semibold uppercase tracking-wide">{tr("Deductions")}</p>
-        <div className="mt-1 grid gap-1">
-          {b.groups.map((g) => (
-            <div key={g.key}>
-              <button className="flex w-full items-baseline justify-between py-1 text-sm" onClick={() => toggle(g.key)}>
-                <span>
-                  {names[g.key]} <span className="faint text-xs">{payOpen.has(g.key) ? "▴" : "▾"}</span>
-                </span>
-                <span style={{ color: "var(--over)" }}>−{money(g.total)}</span>
-              </button>
-              {payOpen.has(g.key) && (
-                <div className="mb-1 grid gap-0.5 pl-3">
-                  {g.lines.map((l) => (
-                    <div key={l.label} className="muted flex justify-between text-xs">
-                      <span>{tr(l.label)}</span>
-                      <span>−{money(l.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {planNet > 0 && (
+          <div className="mt-2">
+            <ProgressBar spent={Math.min(received, planNet)} limit={planNet} />
+          </div>
+        )}
+
+        {gross > 0 ? (
+          <div className="mt-4 grid gap-1 text-sm">
+            <p className="faint text-xs font-semibold uppercase tracking-wide">{tr("What you earn (gross)")}</p>
+            {[...grossBy.entries()].map(([n2, v]) => (
+              <div key={n2} className="flex justify-between">
+                <span>{n2}</span>
+                <span>{money(v)}</span>
+              </div>
+            ))}
+            <div className="divider flex justify-between pt-1 font-semibold">
+              <span>{tr("Gross pay")}</span>
+              <span className="font-display">{money(gross)}</span>
             </div>
-          ))}
-        </div>
-        <div className="divider mt-2 flex items-baseline justify-between pt-2">
-          <span className="font-semibold">{tr("Take-home pay")}</span>
-          <span className="font-display font-semibold" style={{ color: "var(--mint)" }}>
-            {money(b.net)}
-          </span>
-        </div>
-        <p className="faint text-xs">
-          {tr("{amt} in deductions ({pct}% of your gross)", {
-            amt: money(b.deductions),
-            pct: b.gross ? Math.round((b.deductions / b.gross) * 100) : 0,
-          })}
-        </p>
+            {checks > 0 && (
+              <p className="faint text-xs">
+                {tr("Before taxes and deductions · {n} payments this month (plan)", { n: checks })}
+              </p>
+            )}
+
+            {groups.length > 0 && (
+              <>
+                <p className="faint mt-3 text-xs font-semibold uppercase tracking-wide">{tr("Deductions")}</p>
+                {groups.map((x) => (
+                  <div key={x.key}>
+                    <button className="flex w-full items-baseline justify-between py-0.5" onClick={() => toggle(x.key)}>
+                      <span>
+                        {names[x.key]} <span className="faint text-xs">{payOpen.has(x.key) ? "▴" : "▾"}</span>
+                      </span>
+                      <span style={{ color: "var(--over)" }}>−{money(x.total)}</span>
+                    </button>
+                    {payOpen.has(x.key) && (
+                      <div className="mb-1 grid gap-0.5 pl-3">
+                        {x.lines.map((l) => (
+                          <div key={l.label} className="muted flex justify-between text-xs">
+                            <span>{tr(l.label)}</span>
+                            <span>−{money(l.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="flex justify-between pt-0.5 font-semibold">
+                  <span>{tr("Total deductions")}</span>
+                  <span style={{ color: "var(--over)" }}>−{money(dedTotal)}</span>
+                </div>
+              </>
+            )}
+
+            <div className="divider mt-2 flex items-baseline justify-between pt-2">
+              <span className="font-semibold">{tr("Take-home pay")}</span>
+              <span className="font-display font-semibold" style={{ color: "var(--mint)" }}>
+                {money(planNet)}
+              </span>
+            </div>
+            {gross > 0 && dedTotal > 0 && (
+              <p className="faint text-xs">
+                {tr("{amt} in deductions ({pct}% of your gross)", {
+                  amt: money(dedTotal),
+                  pct: Math.round((dedTotal / gross) * 100),
+                })}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="faint mt-3 text-sm">{tr("No pay planned this month.")}</p>
+        )}
+
+        <button className="faint mt-3 text-xs underline-offset-4 hover:underline" onClick={() => toggle(`tx-${g.id}`)}>
+          {showTx ? tr("Hide deposits ▴") : tr("Deposits & tracking ▾")}
+        </button>
+        {showTx && (
+          <div className="mt-1 divide-y" style={{ borderColor: "var(--border)" }}>
+            {members.map((c) => (
+              <CategoryRow key={c.id} cat={c.id === g.id && g.children.length ? { ...c, name: tr("General") } : c} kind="income" />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
   function KindSection({ kind }: { kind: Kind }) {
-    const { groups, standalone } = buildCategoryTree(cats, kind);
-    const total = kind === "income" ? incomeTotal : expenseTotal;
+    const tree = buildCategoryTree(cats, kind);
+    const standalone = kind === "income" ? tree.standalone.filter((c) => !employerIds.has(c.id)) : tree.standalone;
+    const groups = kind === "income" ? tree.groups.filter((g) => !employerIds.has(g.id)) : tree.groups;
+    const empActual = kind === "income" ? [...employerMemberIds].reduce((s2, id) => s2 + spentIn(id), 0) : 0;
+    const empPlan = kind === "income" ? [...employerMemberIds].reduce((s2, id) => s2 + planFor(id), 0) : 0;
+    const total = (kind === "income" ? incomeTotal : expenseTotal) - empActual;
 
     return (
       <div className="card p-6">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-lg font-semibold">
-              {kind === "income" ? tr("Income") : tr("Expenses")}
+              {kind === "income" ? (employerGroups.length ? tr("Other income") : tr("Income")) : tr("Expenses")}
             </h2>
             <button
               className="btn btn-ghost whitespace-nowrap !px-2.5 !py-0.5 !text-xs"
@@ -1242,7 +1323,7 @@ export default function MonthPage() {
             {money(total)}
             <span className="muted text-sm font-medium">
               {" "}
-              / {money(kind === "income" ? planIncome : planExpense)}
+              / {money(kind === "income" ? planIncome - empPlan : planExpense)}
             </span>
           </span>
         </div>
@@ -1272,7 +1353,6 @@ export default function MonthPage() {
           )}
         </div>
 
-        {kind === "income" && payBreakdown.gross > 0 && <PayBreakdown />}
       </div>
     );
   }
@@ -1534,12 +1614,15 @@ export default function MonthPage() {
               </div>
             )}
 
+            {employerGroups.map((g) => (
+              <EmployerCard key={g.id} g={g} />
+            ))}
             <KindSection kind="income" />
             <KindSection kind="expense" />
 
             {/* -------- Custom pinned sections -------- */}
             {cats
-              .filter((c) => c.pinned && !c.parent_id)
+              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id))
               .map((p) => {
                 const children = cats.filter((c) => c.parent_id === p.id);
                 const members = [p, ...children];
