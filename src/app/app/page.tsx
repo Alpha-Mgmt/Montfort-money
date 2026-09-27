@@ -801,11 +801,14 @@ export default function MonthPage() {
     planTotal,
     catId,
     kind,
+    merged,
   }: {
     item: RecurringItem;
     planTotal: number;
     catId: string;
     kind: Kind;
+    /** the category has only this item: show ONE line (the item) instead of category + item */
+    merged?: Category;
   }) {
     const linked = (txByCat.get(catId) ?? []).filter(
       (t) => t.recurring_item_id === item.id
@@ -821,13 +824,18 @@ export default function MonthPage() {
 
     return (
       <div className="py-1.5">
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className={merged ? "-mx-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5" : "flex flex-wrap items-center gap-2"}
+          style={merged ? { background: "color-mix(in srgb, var(--surface-2) 55%, transparent)" } : undefined}
+        >
+          {merged && <span className="w-4 shrink-0" />}
+          {merged && <CategoryDot name={merged.name} />}
           <button
-            className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm"
+            className={`flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm${merged ? " font-semibold" : ""}`}
             onClick={() => setExpandedItem(open ? null : item.id)}
           >
             <span className="truncate">{item.title}</span>
-            <span className="faint text-xs">{open ? "▾" : "▸"}</span>
+            <span className="faint text-xs font-normal">{open ? "▾" : "▸"}</span>
           </button>
           <button
             className="shrink-0 text-sm hover:opacity-80"
@@ -861,6 +869,13 @@ export default function MonthPage() {
                   item.id
                 )
               }
+            />
+          )}
+          {merged && (
+            <LineItemAdd
+              defaultDate={quickDate}
+              placeholder={kind === "income" ? tr("e.g. bonus") : tr("e.g. tires, insurance…")}
+              onSubmit={(amount, note, freq, date) => quickAddTx(kind, catId, amount, note, freq, date)}
             />
           )}
         </div>
@@ -962,6 +977,21 @@ export default function MonthPage() {
     const isEmpty = rows.length === 0 && items.length === 0;
     const hasDetail = items.length > 0 || loose.length > 0;
     const isCollapsed = collapsed.has(cat.id);
+
+    // one plan item and nothing else logged: a single line is enough
+    if (items.length === 1 && loose.length === 0 && !isUncat(cat.id)) {
+      return (
+        <PlanItemRow
+          item={items[0].item}
+          planTotal={items[0].total}
+          catId={cat.id}
+          kind={kind}
+          merged={cat}
+        />
+      );
+    }
+    // the group's own bucket ("General") only when something is in it
+    if (cat.name === tr("General") && isEmpty && plan === 0) return null;
 
     return (
       <div className="py-1.5">
