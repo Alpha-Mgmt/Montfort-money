@@ -77,6 +77,8 @@ tbody tr:last-child td{border-bottom:none}
 td[id^="c-bi"],td[id^="c-dep"]{color:var(--calc)}
 td.bf{font-weight:700;color:var(--ink)}
 tr.closed td{background:rgba(30,45,80,.025)}
+tr.adj td{background:rgba(217,130,43,.07);font-weight:600;font-size:.86rem}
+.adj-note{margin-top:14px;font-size:.88rem;color:var(--ink-2,#4a5568)}.adj-note b{color:#B4532A}
 tr.future td,tr.future td.bf,tr.future td.l{color:var(--faint)}
 tr.cut td{box-shadow:inset 0 -2px 0 rgba(16,185,129,.55)}
 .pos{color:var(--pos);font-weight:700} .neg{color:var(--neg);font-weight:700} .dim{color:var(--faint);font-weight:400}
@@ -142,6 +144,10 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
   .ann{position:static;margin:0 0 18px;display:inline-block} .hd h1{padding-right:0;font-size:1.6rem}
   .hd-item .v{font-size:1.1rem}
 }
+.capturing .tbl{overflow:visible}
+.capturing .lock{display:none}
+.capturing select{background-image:none;padding-right:14px}
+.capturing input.cell.snap{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -173,6 +179,7 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
           <div class="hd-item"><div class="l">Días</div><div class="v" id="k-days">—</div></div>
           <div class="hd-item"><div class="l">Cliente desde</div><div class="v" id="k-since">—</div></div>
         </div>
+        <div class="adj-note" id="k-adj" hidden></div>
       </div>
 
       <div class="card sec">
@@ -201,7 +208,7 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
         <div class="sec-h"><h2>Historial por año</h2></div>
         <div class="tbl">
           <table>
-            <thead><tr><th class="l">Inicio</th><th class="l">Fin</th><th>Días</th><th>Balance inicial</th><th>Depósitos</th><th>Retiros</th><th>%</th><th>Profit</th><th>Balance final</th></tr></thead>
+            <thead><tr><th class="l">Inicio</th><th class="l">Fin</th><th>Días</th><th>Balance inicial</th><th>Depósitos</th><th>Retiros</th><th>Ajuste</th><th>%</th><th>Profit</th><th>Balance final</th></tr></thead>
             <tbody id="h-body"></tbody>
             <tfoot id="h-foot"></tfoot>
           </table>
@@ -246,7 +253,7 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
         <div class="sec-h"><h2>Año por año</h2></div>
         <div class="tbl">
           <table>
-            <thead><tr><th class="l">Año</th><th class="l">Tipo</th><th>Balance inicial</th><th>Rendimiento</th><th>Retiros</th><th>Profit</th><th>Balance final</th></tr></thead>
+            <thead><tr><th class="l">Año</th><th class="l">Tipo</th><th>Balance inicial</th><th>Rendimiento</th><th>Retiros</th><th>Ajuste</th><th>Profit</th><th>Balance final</th></tr></thead>
             <tbody id="y-body"></tbody>
             <tfoot id="y-foot"></tfoot>
           </table>
@@ -297,7 +304,7 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
 const MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MEN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const $=id=>document.getElementById(id);
-let db=null, clients={}, curId=null, corteOverride=null, saveTimer=null, dirty=false, confirmClose=false;
+let printMode=false, db=null, clients={}, curId=null, corteOverride=null, saveTimer=null, dirty=false, confirmClose=false;
 
 const money=n=>{n=+n||0;return (n<-0.004?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
 const pct=(n,d=2)=>(n>=0?'':'−')+Math.abs(n).toFixed(d)+'%';
@@ -324,14 +331,14 @@ function corte(){const c=cur(); return corteOverride!=null?corteOverride:default
 function calc(c){
   let bal=+c.initialBalance||0; const out=[];
   c.months.forEach(m=>{
-    const dep=depUsd(m), wit=witUsd(m), bi=bal+dep-wit, profit=bi*(+m.rate||0), bf=bi+profit;
-    out.push({dep,wit,bi,profit,bf}); bal=bf;
+    const dep=depUsd(m), wit=witUsd(m), adj=+m.adjUsd||0, bi=bal+dep-wit-adj, profit=bi*(+m.rate||0), bf=bi+profit;
+    out.push({dep,wit,adj,bi,profit,bf}); bal=bf;
   });
   return out;
 }
 function summary(c,r,k){
-  const D=daysIn(c.year), s={bi:+c.initialBalance||0,dep:0,wit:0,profit:0,bf:+c.initialBalance||0,days:0,twr:1};
-  for(let i=0;i<=k;i++){s.dep+=r[i].dep;s.wit+=r[i].wit;s.profit+=r[i].profit;s.bf=r[i].bf;s.days+=D[i];s.twr*=1+(+c.months[i].rate||0);}
+  const D=daysIn(c.year), s={bi:+c.initialBalance||0,dep:0,wit:0,adj:0,profit:0,bf:+c.initialBalance||0,days:0,twr:1};
+  for(let i=0;i<=k;i++){s.dep+=r[i].dep;s.wit+=r[i].wit;s.adj+=r[i].adj;s.profit+=r[i].profit;s.bf=r[i].bf;s.days+=D[i];s.twr*=1+(+c.months[i].rate||0);}
   s.ytd=(s.twr-1)*100; s.ann=s.days?(Math.pow(s.twr,365/s.days)-1)*100:0;
   s.pp=s.bi>0?s.profit/s.bi*100:0; return s;
 }
@@ -358,9 +365,10 @@ function renderTable(){
     const lockIcon=m.closed
       ?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
       :'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/></svg>';
-    const t=(f,sm,fmtFn)=>m.closed?((+m[f])?fmtFn(m[f]):dash):inp(i,f,m[f],sm);
+    const ro=m.closed||printMode;
+    const t=(f,sm,fmtFn)=>ro?((+m[f])?fmtFn(m[f]):dash):inp(i,f,m[f],sm);
     const tc=v=>(+v).toFixed(4), mx=v=>money(v);
-    const rateCell=m.closed?`${((+m.rate||0)*100).toFixed(2)}%`:`<input class="cell sm" id="f-rate-${i}" data-i="${i}" data-f="rate" type="number" step="any" inputmode="decimal" value="${(+m.rate)?+(m.rate*100).toFixed(4):''}" placeholder="0" aria-label="% ${MES[i]}">`;
+    const rateCell=ro?`${((+m.rate||0)*100).toFixed(2)}%`:`<input class="cell sm" id="f-rate-${i}" data-i="${i}" data-f="rate" type="number" step="any" inputmode="decimal" value="${(+m.rate)?+(m.rate*100).toFixed(4):''}" placeholder="0" aria-label="% ${MES[i]}">`;
     return `<tr id="row-${i}" class="${m.closed?'closed':''}">
       <td class="l">${MES[i]}</td><td>${D[i]}</td>
       <td>${t('depMxn',false,mx)}</td><td>${t('depFx',true,tc)}</td><td id="c-dep-${i}"></td>
@@ -369,7 +377,7 @@ function renderTable(){
       <td>${t('witUsd',false,mx)}</td><td>${t('witMxn',false,mx)}</td><td>${t('witFx',true,tc)}</td>
       <td class="bf" id="c-bf-${i}"></td>
       <td><button class="lock" type="button" data-lock="${i}" title="${m.closed?'Abrir mes para editar':'Cerrar mes'}">${lockIcon}</button></td>
-    </tr>`;
+    </tr>${(+m.adjUsd)?`<tr class="adj" id="adj-${i}"><td class="l" colspan="11">Ajuste por plan de pagos · ${MES[i]}</td><td class="bf neg">${money(-m.adjUsd)}</td><td></td></tr>`:''}`;
   }).join('');
   refresh();
 }
@@ -393,6 +401,7 @@ function refresh(){
   $('k-profit').innerHTML=`<span class="${s.profit<0?'neg':'pos'}">${money(s.profit)}</span>`;
   $('k-ytd').textContent=pct(s.ytd); $('k-ann').textContent=k>=0?pct(s.ann,1):'—';
   $('k-dep').textContent=money(s.dep); $('k-wit').textContent=money(s.wit); $('k-days').textContent=s.days;
+  $('k-adj').hidden=!s.adj; $('k-adj').innerHTML=s.adj?`Ajuste por plan de pagos en ${c.year}: <b>${money(-s.adj)}</b> · no es pérdida de inversión, es el ajuste acordado para terminar de pagar tu cuenta`:'';
   $('k-since').textContent=(c.hist&&c.hist[0])?c.hist[0].s:('1-Jan-'+String(c.year).slice(2));
   renderHist(c,s,k);
   renderProj();
@@ -400,14 +409,14 @@ function refresh(){
 
 function renderHist(c,s,k){
   const D=daysIn(c.year), y2=String(c.year).slice(2);
-  const ytd={s:`1-Jan-${y2}`,e:k>=0?`${D[k]}-${MEN[k]}-${y2}`:`1-Jan-${y2}`,days:s.days,bi:s.bi,dep:s.dep,wit:s.wit,pp:+s.pp.toFixed(2),profit:s.profit,bf:s.bf,cur:true};
+  const ytd={s:`1-Jan-${y2}`,e:k>=0?`${D[k]}-${MEN[k]}-${y2}`:`1-Jan-${y2}`,days:s.days,bi:s.bi,dep:s.dep,wit:s.wit,adj:s.adj,pp:+s.pp.toFixed(2),profit:s.profit,bf:s.bf,cur:true};
   const all=[...(c.hist||[]),ytd];
   $('h-body').innerHTML=all.map(h=>`<tr class="${h.cur?'ytd':''}">
     <td class="l">${esc(h.s)}</td><td class="l">${esc(h.e)}${h.cur?' <span class="hint">(en curso)</span>':''}</td><td>${h.days}</td>
-    <td>${money(h.bi)}</td><td>${h.dep?money(h.dep):dash}</td><td>${h.wit?money(h.wit):dash}</td>
+    <td>${money(h.bi)}</td><td>${h.dep?money(h.dep):dash}</td><td>${h.wit?money(h.wit):dash}</td><td class="neg">${(+h.adj)?money(-h.adj):dash}</td>
     <td class="${h.pp<0?'neg':'pos'}">${(+h.pp).toFixed(2)}%</td><td class="${h.profit<0?'neg':'pos'}">${money(h.profit)}</td><td class="bf">${money(h.bf)}</td></tr>`).join('');
-  const t=all.reduce((a,h)=>({days:a.days+h.days,dep:a.dep+h.dep,wit:a.wit+h.wit,profit:a.profit+h.profit}),{days:0,dep:0,wit:0,profit:0});
-  $('h-foot').innerHTML=`<tr><td class="l" colspan="2">Total</td><td>${t.days}</td><td></td><td>${money(t.dep)}</td><td>${money(t.wit)}</td><td></td><td>${money(t.profit)}</td><td>${money(all[all.length-1].bf)}</td></tr>`;
+  const t=all.reduce((a,h)=>({days:a.days+h.days,dep:a.dep+h.dep,wit:a.wit+h.wit,adj:a.adj+(+h.adj||0),profit:a.profit+h.profit}),{days:0,dep:0,wit:0,adj:0,profit:0});
+  $('h-foot').innerHTML=`<tr><td class="l" colspan="2">Total</td><td>${t.days}</td><td></td><td>${money(t.dep)}</td><td>${money(t.wit)}</td><td class="neg">${t.adj?money(-t.adj):''}</td><td></td><td>${money(t.profit)}</td><td>${money(all[all.length-1].bf)}</td></tr>`;
 }
 
 function renderAll(){renderSelects(); if(cur()){ $('app').hidden=false; $('notice').hidden=true; renderTable(); }}
@@ -467,10 +476,10 @@ function runProj(c){
   });
   if(!(c.hist&&c.hist.length)) cf.push([c.year*12,-(+c.initialBalance||0)]);
   // año en curso: tal cual está en el reporte (12 meses)
-  let twr=1,pro=0,wit=0; c.months.forEach((m,i)=>{twr*=1+(+m.rate||0);pro+=r[i].profit;wit+=r[i].wit;});
+  let twr=1,pro=0,wit=0,adj=0; c.months.forEach((m,i)=>{twr*=1+(+m.rate||0);pro+=r[i].profit;wit+=r[i].wit;adj+=r[i].adj;});
   const cyEnd=r[11].bf;
   r.forEach((x,i)=>{if(x.dep)cf.push([c.year*12+i,-x.dep]);if(x.wit)cf.push([c.year*12+i,x.wit]);});
-  rows.push({y:c.year,kind:k>=11?'Real':(k>=0?'mix':'Reporte'),bi:+c.initialBalance||0,pct:(twr-1)*100,profit:pro,wit,bf:cyEnd});
+  rows.push({y:c.year,kind:k>=11?'Real':(k>=0?'mix':'Reporte'),bi:+c.initialBalance||0,pct:(twr-1)*100,profit:pro,wit,adj,bf:cyEnd});
   const real=(c.hist||[]).map(h=>({x:parseD(h.e).x,v:+h.bf,t:'Cierre '+parseD(h.e).y}));
   if(c.hist&&c.hist[0]){const st=parseD(c.hist[0].s);real.unshift({x:st.y+st.m/12+(st.d-1)/365,v:+c.hist[0].dep||0,t:'Inicio'});}
   for(let i=0;i<=k;i++) real.push({x:c.year+(i+1)/12,v:r[i].bf,t:MES[i]+' '+c.year});
@@ -480,10 +489,11 @@ function runProj(c){
   // años proyectados
   let bal=cyEnd, depleted=null; const futRows=[];
   for(let y=c.year+1;y<=p.toYear && bal>0;y++){
-    const o=p.y[y]||{}, ann=o.r!=null?+o.r:+p.baseAnn||0, W=o.w!=null?+o.w:+p.baseWit||0;
-    const mr=Math.pow(1+ann/100,1/12)-1, row={y,kind:'Proyección',bi:bal,ann,wIn:W,ovR:o.r!=null,ovW:o.w!=null,profit:0,wit:0,twr:1,months:0,edit:true};
+    const o=p.y[y]||{}, ann=o.r!=null?+o.r:+p.baseAnn||0, W=o.w!=null?+o.w:+p.baseWit||0, A=+o.a||0;
+    const mr=Math.pow(1+ann/100,1/12)-1, row={y,kind:'Proyección',bi:bal,ann,wIn:W,ovR:o.r!=null,ovW:o.w!=null,profit:0,wit:0,adj:0,twr:1,months:0,edit:true};
     for(let m=0;m<12;m++){
       const w=Math.min(W/12,bal), bi=bal-w, pr=bi*mr; bal=bi+pr;
+      if(m===11&&A>0){const a=Math.min(A,bal); bal-=a; row.adj+=a;}
       row.wit+=w;row.profit+=pr;row.twr*=1+mr;row.months++; if(w)cf.push([y*12+m,w]);
       fut.push({x:y+(m+1)/12,v:bal,t:MES[m]+' '+y,proj:true});
       if(bal<0.01){bal=0;depleted={y,m};break;}
@@ -499,7 +509,7 @@ function runProj(c){
   const sum=f=>rows.reduce((a,x)=>a+(+x[f]||0),0);
   const totDep=(c.hist||[]).reduce((a,h)=>a+(+h.dep||0),0)+r.reduce((a,x)=>a+x.dep,0);
   return {p,k,now,cyEnd,rows,avg,depleted,years:endX-(st.y+st.m/12+(st.d-1)/365),
-    irr,totDep,totWit:sum('wit'),totPro:sum('profit'),end:rows[rows.length-1].bf,real,fut};
+    irr,totDep,totWit:sum('wit'),totAdj:sum('adj'),totPro:sum('profit'),end:rows[rows.length-1].bf,real,fut};
 }
 
 function xirr(cf){
@@ -526,7 +536,7 @@ function renderProj(force){
   $('p-end').textContent=money(R.end);
   $('p-zero').textContent=R.depleted?`${MES[R.depleted.m]} ${R.depleted.y}`:'No llega';
   $('p-zero-box').classList.toggle('zero',!!R.depleted);
-  $('p-dep').textContent=money(R.totDep); $('p-wit').textContent=money(R.totWit); $('p-profit').textContent=money(R.totPro);
+  $('p-dep').textContent=money(R.totDep); $('p-wit').textContent=money(R.totWit); $('p-profit').textContent=money(R.totWit+R.end-R.totDep);
   if(a!==$('p-to')){const o=[];for(let y=c.year+1;y<=c.year+20;y++)o.push(`<option value="${y}">Dic ${y}</option>`);$('p-to').innerHTML=o.join('');$('p-to').value=String(p.toYear);}
   if(a!==$('p-base')) $('p-base').value=p.baseAnn;
   if(a!==$('p-wbase')) $('p-wbase').value=(+p.baseWit)?p.baseWit:'';
@@ -538,7 +548,7 @@ function renderProj(force){
     $('y-body').innerHTML=R.rows.map(x=>`<tr id="yr-${x.y}" class="${x.y===c.year?'ye':''}"><td class="l">${x.y}</td><td class="l">${chip(x.kind)}</td>
       <td>${money(x.bi)}</td>
       <td>${x.edit?`<input class="cell sm" data-yr="${x.y}" data-k="r" type="number" step="any" inputmode="decimal" aria-label="Rendimiento ${x.y}"> %`:`<span class="${x.pct<0?'neg':'pos'}">${pct(x.pct)}</span>`}</td>
-      <td>${x.edit?`<input class="cell" data-yr="${x.y}" data-k="w" type="number" step="any" min="0" inputmode="decimal" placeholder="0" aria-label="Retiro ${x.y}">`:(x.wit?money(x.wit):dash)}</td>
+      <td>${x.edit?`<input class="cell" data-yr="${x.y}" data-k="w" type="number" step="any" min="0" inputmode="decimal" placeholder="0" aria-label="Retiro ${x.y}">`:(x.wit?money(x.wit):dash)}</td><td class="neg">${(+x.adj)?money(-x.adj):dash}</td>
       <td data-c="profit"></td><td class="bf" data-c="bf"></td></tr>`).join('');
   }
   R.rows.forEach((x,i)=>{
@@ -554,8 +564,8 @@ function renderProj(force){
       if(iw!==a) iw.value=x.wIn?+x.wIn.toFixed(2):'';
     }
   });
-  $('y-foot').innerHTML=`<tr><td class="l" colspan="3">Promedio simple anual (${R.rows.length} años)</td><td>${pct(R.avg)}</td><td>${money(R.totWit)}</td><td>${money(R.totPro)}</td><td>${money(R.end)}</td></tr>`
-    +(R.irr!=null?`<tr class="avg"><td class="l" colspan="3">Rendimiento anual de tu dinero</td><td>${pct(R.irr)}</td><td class="l" colspan="3" style="font-weight:500;font-size:.85rem">Toma en cuenta cuándo entró y salió cada dólar de tu cuenta</td></tr>`:'');
+  $('y-foot').innerHTML=`<tr><td class="l" colspan="3">Promedio simple anual (${R.rows.length} años)</td><td>${pct(R.avg)}</td><td>${money(R.totWit)}</td><td class="neg">${R.totAdj?money(-R.totAdj):''}</td><td>${money(R.totPro)}</td><td>${money(R.end)}</td></tr>`
+    +(R.irr!=null?`<tr class="avg"><td class="l" colspan="3">Rendimiento anual de tu dinero</td><td>${pct(R.irr)}</td><td class="l" colspan="4" style="font-weight:500;font-size:.85rem">Toma en cuenta cuándo entró y salió cada dólar de tu cuenta</td></tr>`:'');
   drawChart(R);
 }
 
@@ -622,6 +632,20 @@ $('dl').addEventListener('click',async()=>{
   const c=cur(), node=$(tab==='proj'?'tab-proj':'tab-rep');
   if(!c||!node||!window.htmlToImage) return;
   const b=$('dl'); b.disabled=true; b.textContent='Generando…';
+  // clean version for the client: numbers instead of input boxes, full-width tables
+  printMode=true; if(tab==='rep') renderTable();
+  document.body.classList.add('capturing');
+  const wide=Math.max(node.offsetWidth,...[...node.querySelectorAll('.tbl')].map(t=>t.scrollWidth+80));
+  const prevW=node.style.width; node.style.width=wide+'px';
+  // projection: show the year inputs as plain numbers too
+  const snaps=[...node.querySelectorAll('input.cell[data-k]')].map(i=>{
+    const v=parseFloat(i.value), sp=document.createElement('span');
+    sp.className='snapv';
+    if(i.classList.contains('ovr')) sp.style.color='#6D4BD8';
+    sp.textContent=i.dataset.k==='r'?(isNaN(v)?'—':v.toFixed(2)+'%'):(v?money(v):'—');
+    i.classList.add('snap'); i.after(sp); return [i,sp];
+  });
+  node.querySelectorAll('input.cell[data-k="r"]').forEach(i=>{const n=i.nextSibling&&i.nextSibling.nextSibling; if(n&&n.nodeType===3) n.__t=n.textContent, n.textContent='';});
   try{
     const url=await htmlToImage.toPng(node,{pixelRatio:2,backgroundColor:'#F4F7FB',cacheBust:true,
       filter:n=>!(n.classList&&(n.classList.contains('lock')||n.classList.contains('btn')))});
@@ -629,6 +653,10 @@ $('dl').addEventListener('click',async()=>{
     a.download=`${slug(c.name)}-${c.year}-${tab==='proj'?'proyeccion':'reporte'}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ setStatus('No se pudo generar la imagen','err'); }
+  snaps.forEach(([i,sp])=>{i.classList.remove('snap');sp.remove();});
+  node.querySelectorAll('input.cell[data-k="r"]').forEach(i=>{const n=i.nextSibling; if(n&&n.nodeType===3&&n.__t!=null){n.textContent=n.__t;delete n.__t;}});
+  node.style.width=prevW; document.body.classList.remove('capturing');
+  printMode=false; if(tab==='rep') renderTable();
   b.disabled=false; b.textContent='Descargar imagen';
 });
 
