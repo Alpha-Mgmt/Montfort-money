@@ -897,4 +897,8 @@ export const es: Record<string, string> = {
   "How often": "Cada cuánto",
   "Ends (optional)": "Termina (opcional)",
   "Edit name, amount or dates": "Editar nombre, monto o fechas",
+  "Change this month's plan": "Cambiar el plan de este mes",
+  "{amt} paid": "{amt} pagado",
+  "plan {amt}": "plan {amt}",
+  "Back to {amt}": "Regresar a {amt}",
 };

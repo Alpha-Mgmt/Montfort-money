@@ -37,6 +37,7 @@ import { monthLabel } from "@/lib/format";
 import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts } from "@/lib/taxes";
 import { DeductionEditor } from "@/components/DeductionEditor";
 import { PlanItemEditor } from "@/components/PlanItemEditor";
+import { DebtPlanEditor } from "@/components/DebtPlanEditor";
 import {
   GoalSheet,
   emptyGoalDraft,
@@ -514,7 +515,11 @@ export default function MonthPage() {
       if (hit.length || DEBTY.test(p.item.title) || DEBTY.test(catNameById.get(catId) ?? "")) debtItemPlan += p.total;
     }
   }
-  const debtOnlyPlan = liveDebts.filter((d) => !coveredDebt.has(d.id)).reduce((s, d) => s + d.planned_payment, 0);
+  const debtPlanFor = (d: Debt) => {
+    const v = d.month_plans?.[month.slice(0, 7)];
+    return v != null ? Number(v) : d.planned_payment;
+  };
+  const debtOnlyPlan = liveDebts.filter((d) => !coveredDebt.has(d.id)).reduce((s, d) => s + debtPlanFor(d), 0);
   const planDebts = debtItemPlan + debtOnlyPlan;
   const planGoals = goalsPlanMonthly;
   // everything that leaves: spending + debts + goals + investment deposits
@@ -2137,16 +2142,32 @@ export default function MonthPage() {
                               </p>
                             )}
                           </button>
-                          <span className="shrink-0 text-right text-xs">
-                            {paid > 0 ? (
-                              <span className="chip">
-                                {money(paid)} paid this month
-                              </span>
-                            ) : (
-                              <span className="faint">
-                                {tr("plan {amt}/mo", { amt: money(d.planned_payment) })}
-                              </span>
-                            )}
+                          <span className="shrink-0 text-right">
+                            <DebtPlanEditor
+                              plan={debtPlanFor(d)}
+                              base={d.planned_payment}
+                              paid={paid}
+                              onSave={async (amount, scope) => {
+                                const supabase = createClient();
+                                const key = month.slice(0, 7);
+                                const mp = { ...(d.month_plans ?? {}) };
+                                if (scope === "all") {
+                                  delete mp[key];
+                                  await supabase
+                                    .from("debts")
+                                    .update({ planned_payment: amount, month_plans: Object.keys(mp).length ? mp : null })
+                                    .eq("id", d.id);
+                                } else {
+                                  if (scope === "reset") delete mp[key];
+                                  else mp[key] = amount;
+                                  await supabase
+                                    .from("debts")
+                                    .update({ month_plans: Object.keys(mp).length ? mp : null })
+                                    .eq("id", d.id);
+                                }
+                                load(month);
+                              }}
+                            />
                           </span>
                           <QuickAdd
                             label={tr("payment to {v0}", { v0: d.name })}

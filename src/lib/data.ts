@@ -143,7 +143,7 @@ export async function fetchDebts(): Promise<Debt[]> {
   const { data } = await supabase
     .from("debts")
     .select(
-      "id,name,debt_type,original_amount,balance,apr,planned_payment,payment_due_day,statement_close_day,archived"
+      "*"
     )
     .eq("archived", false)
     .order("created_at");

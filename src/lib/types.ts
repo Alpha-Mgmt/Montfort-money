@@ -113,6 +113,8 @@ export type Debt = {
   payment_due_day: number | null;
   statement_close_day: number | null;
   archived: boolean;
+  /** plan for specific months: { "2026-10": 80 } — others use planned_payment */
+  month_plans?: Record<string, number> | null;
 };
 
 export type Investment = {
