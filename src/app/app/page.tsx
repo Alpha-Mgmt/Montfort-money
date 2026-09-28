@@ -36,6 +36,7 @@ import {
 import { monthLabel } from "@/lib/format";
 import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts } from "@/lib/taxes";
 import { DeductionEditor } from "@/components/DeductionEditor";
+import { PlanItemEditor } from "@/components/PlanItemEditor";
 import {
   GoalSheet,
   emptyGoalDraft,
@@ -860,6 +861,8 @@ export default function MonthPage() {
     const open = expandedItem === item.id;
     const [confirmDel, setConfirmDel] = useState(false);
     const [confirmTxDel, setConfirmTxDel] = useState<string | null>(null);
+    const [editing, setEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const nextMonth = addMonths(month, 1);
     const schedule = occurrenceDates(item, month, nextMonth).filter(
       (d) => d < nextMonth
@@ -933,6 +936,24 @@ export default function MonthPage() {
             className="mt-1 divide-y pl-3"
             style={{ borderColor: "var(--border)" }}
           >
+            {editing ? (
+              <PlanItemEditor
+                item={item}
+                busy={saving}
+                onCancel={() => setEditing(false)}
+                onSave={async (patch) => {
+                  setSaving(true);
+                  await createClient().from("recurring_items").update(patch).eq("id", item.id);
+                  setSaving(false);
+                  setEditing(false);
+                  load();
+                }}
+              />
+            ) : (
+              <button className="py-1 text-xs font-semibold" style={{ color: "var(--mint)" }} onClick={() => setEditing(true)}>
+                ✎ {tr("Edit name, amount or dates")}
+              </button>
+            )}
             <p className="faint py-1 text-xs">
               {tr(frequencyLabels[item.frequency])}
               {schedule.length > 0 && (

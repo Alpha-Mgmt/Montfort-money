@@ -892,4 +892,9 @@ export const es: Record<string, string> = {
   "Plan it": "Planear",
   "Already paid": "Ya lo pagué",
   "Every 3 months": "Cada 3 meses",
+  "Take-home per payment": "Neto por pago",
+  "This one is calculated from gross pay minus deductions — edit those in your employer card.": "Este se calcula con tu sueldo bruto menos deducciones — edítalas en la tarjeta de tu empleador.",
+  "How often": "Cada cuánto",
+  "Ends (optional)": "Termina (opcional)",
+  "Edit name, amount or dates": "Editar nombre, monto o fechas",
 };
