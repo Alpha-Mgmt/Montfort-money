@@ -6,14 +6,14 @@ import { tr } from "@/lib/i18n";
 
 export type LineItemFreq = "none" | Frequency;
 
-const freqOptions: { v: LineItemFreq; label: string }[] = [
-  { v: "none", label: "Just log it" },
-  { v: "once", label: "Plan · this month" },
-  { v: "monthly", label: "Plan · monthly" },
-  { v: "semimonthly", label: "Plan · twice a month" },
-  { v: "biweekly", label: "Plan · every 2 weeks" },
-  { v: "weekly", label: "Plan · weekly" },
-  { v: "yearly", label: "Plan · yearly" },
+const planOptions: { v: Frequency; label: string }[] = [
+  { v: "once", label: "This month only" },
+  { v: "monthly", label: "Every month" },
+  { v: "semimonthly", label: "Twice a month" },
+  { v: "biweekly", label: "Every 2 weeks" },
+  { v: "weekly", label: "Every week" },
+  { v: "quarterly", label: "Every 3 months" },
+  { v: "yearly", label: "Every year" },
 ];
 
 /**
@@ -37,7 +37,9 @@ export function LineItemAdd({
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("");
-  const [freq, setFreq] = useState<LineItemFreq>("none");
+  // plan first: most adds under a category are "I'll spend this", not "I spent it"
+  const [mode, setMode] = useState<"plan" | "log">("plan");
+  const [freq, setFreq] = useState<Frequency>("once");
   const [date, setDate] = useState(defaultDate);
   const [busy, setBusy] = useState(false);
   const noteRef = useRef<HTMLInputElement>(null);
@@ -53,14 +55,15 @@ export function LineItemAdd({
     setOpen(false);
     setNote("");
     setAmount("");
-    setFreq("none");
+    setFreq("once");
+    setMode("plan");
   }
 
   async function submit() {
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
     setBusy(true);
-    await onSubmit(n, note.trim(), freq, date);
+    await onSubmit(n, note.trim(), mode === "log" ? "none" : freq, date);
     setBusy(false);
     reset();
   }
@@ -85,6 +88,19 @@ export function LineItemAdd({
 
   return (
     <div className="mt-1 flex w-full flex-wrap items-center gap-1.5">
+      <span className="inline-flex overflow-hidden rounded-full border text-xs" style={{ borderColor: "var(--border)" }}>
+        {(["plan", "log"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className="px-2.5 py-1 font-semibold"
+            style={mode === m ? { background: "var(--mint)", color: "#06130d" } : { color: "var(--text-soft)" }}
+          >
+            {m === "plan" ? tr("Plan it") : tr("Already paid")}
+          </button>
+        ))}
+      </span>
       <input
         ref={noteRef}
         className="input !min-w-28 !flex-1 !px-2 !py-1 text-sm"
@@ -120,18 +136,20 @@ export function LineItemAdd({
         onKeyDown={onKey}
         aria-label={tr("Date")}
       />
-      <select
-        className="input !w-auto !px-2 !py-1 text-sm"
-        value={freq}
-        disabled={busy}
-        onChange={(e) => setFreq(e.target.value as LineItemFreq)}
-      >
-        {freqOptions.map((o) => (
-          <option key={o.v} value={o.v}>
-            {tr(o.label)}
-          </option>
-        ))}
-      </select>
+      {mode === "plan" && (
+        <select
+          className="input !w-auto !px-2 !py-1 text-sm"
+          value={freq}
+          disabled={busy}
+          onChange={(e) => setFreq(e.target.value as Frequency)}
+        >
+          {planOptions.map((o) => (
+            <option key={o.v} value={o.v}>
+              {tr(o.label)}
+            </option>
+          ))}
+        </select>
+      )}
       <button
         aria-label={tr("Save")}
         onClick={submit}

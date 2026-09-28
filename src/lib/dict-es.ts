@@ -889,4 +889,7 @@ export const es: Record<string, string> = {
   "A new name changes it on every paycheck.": "El nombre nuevo se cambia en todos tus cheques.",
   "Money in": "Lo que entra",
   "Money out": "Lo que sale",
+  "Plan it": "Planear",
+  "Already paid": "Ya lo pagué",
+  "Every 3 months": "Cada 3 meses",
 };
