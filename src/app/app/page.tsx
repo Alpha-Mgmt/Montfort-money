@@ -1423,6 +1423,22 @@ export default function MonthPage() {
     );
   }
 
+  function FlowHeader({ dir }: { dir: "in" | "out" }) {
+    const actual = dir === "in" ? incomeTotal : expenseTotal;
+    const plan = dir === "in" ? planIncome : planExpense;
+    return (
+      <div className="mt-2 flex items-end justify-between gap-3 border-b pb-2" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-display text-xl font-semibold">
+          <span className={dir === "in" ? "text-grad" : undefined}>{dir === "in" ? tr("Money in") : tr("Money out")}</span>
+        </h2>
+        <span className="font-display font-semibold" style={dir === "in" ? { color: "var(--mint)" } : undefined}>
+          {money(actual)}
+          <span className="muted text-sm font-medium"> / {money(plan)}</span>
+        </span>
+      </div>
+    );
+  }
+
   function KindSection({ kind }: { kind: Kind }) {
     const tree = buildCategoryTree(cats, kind);
     const standalone = kind === "income" ? tree.standalone.filter((c) => !employerIds.has(c.id)) : tree.standalone;
@@ -1436,7 +1452,7 @@ export default function MonthPage() {
         <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-lg font-semibold">
-              {kind === "income" ? (employerGroups.length ? tr("Other income") : tr("Income")) : tr("Expenses")}
+              {kind === "income" ? (employerGroups.length ? tr("Other income") : tr("Income")) : tr("Monthly expenses")}
             </h2>
             <button
               className="btn btn-ghost whitespace-nowrap !px-2.5 !py-0.5 !text-xs"
@@ -1743,15 +1759,188 @@ export default function MonthPage() {
               </div>
             )}
 
+            {/* ======== MONEY IN ======== */}
+            <FlowHeader dir="in" />
             {employerGroups.map((g) => (
               <EmployerCard key={g.id} g={g} />
             ))}
             <KindSection kind="income" />
+            {/* -------- Pinned income sections -------- */}
+            {cats
+              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id) && c.kind === "income")
+              .map((p) => {
+                const children = cats.filter((c) => c.parent_id === p.id);
+                const members = [p, ...children];
+                const total = members.reduce((s, c) => s + spentIn(c.id), 0);
+                const planSum = members.reduce(
+                  (s, c) => s + planFor(c.id),
+                  0
+                );
+                return (
+                  <div key={p.id} className="card p-6">
+                    <div className="mb-1 flex items-center justify-between">
+                      <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
+                        <CategoryDot name={p.name} size={10} />
+                        {p.name}{" "}
+                        <span className="faint text-xs font-normal">
+                          {p.kind === "income" ? "income" : "expenses"}
+                        </span>
+                      </h2>
+                      <span
+                        className="font-display font-semibold"
+                        style={
+                          p.kind === "income"
+                            ? { color: "var(--mint)" }
+                            : undefined
+                        }
+                      >
+                        {money(total)}
+                        {planSum > 0 && (
+                          <span className="muted text-sm font-medium">
+                            {" "}
+                            / {money(planSum)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div
+                      className="divide-y"
+                      style={{ borderColor: "var(--border)" }}
+                    >
+                      {members.map((c) => (
+                        <CategoryRow
+                          key={c.id}
+                          cat={c.id === p.id ? { ...c, name: tr("General") } : c}
+                          kind={p.kind}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      className="faint mt-3 text-xs underline underline-offset-4"
+                      onClick={() => togglePin(p.id, false)}
+                    >
+                      {tr("↙ Move back into")}
+{" "}
+                      {p.kind === "income" ? tr("Income") : tr("Expenses")}
+                    </button>
+                  </div>
+                );
+              })}
+
+            {/* -------- Investments -------- */}
+            {showInvs && (
+            <div className="card p-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold">
+                  {tr("Investments")}
+                </h2>
+                <div className="flex items-center gap-3">
+                  {totalInvested > 0 && (
+                    <span
+                      className="font-display font-semibold"
+                      style={{ color: "var(--mint)" }}
+                    >
+                      {money(totalInvested)}
+                    </span>
+                  )}
+                  <button
+                    className="btn btn-ghost !px-3 !py-1 !text-sm"
+                    onClick={() => {
+                      setInvDraft(emptyInvDraft());
+                      setInvOpen(true);
+                    }}
+                  >
+                    {tr("+ Add")}
+                  </button>
+                </div>
+              </div>
+              {invs.length === 0 ? (
+                <p className="muted py-2 text-sm">
+                  {tr("Track brokerage, retirement, crypto or your house fund — and watch the balance grow with each contribution.")}
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {invs.map((iv) => {
+                    const added = invAddedThisMonth.get(iv.id) ?? 0;
+                    const taken = invWithdrawnThisMonth.get(iv.id) ?? 0;
+                    const now = new Date();
+                    const monthsToDec = 12 - now.getMonth();
+                    const eoy = projectInvestment(
+                      iv.balance,
+                      iv.expected_apr,
+                      0,
+                      monthsToDec
+                    );
+                    return (
+                      <div
+                        key={iv.id}
+                        className="card-soft flex items-center gap-2 p-4"
+                      >
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => {
+                            setInvDraft(invToDraft(iv));
+                            setInvOpen(true);
+                          }}
+                        >
+                          <p className="flex items-center gap-2.5 truncate text-sm font-semibold">
+                            <CategoryDot name={iv.name} />
+                            {iv.name}
+                          </p>
+                          <p className="faint pl-5 text-xs">
+                            {tr("{bal} now · ~{eoy} by Dec at {apr}%", { bal: money(iv.balance), eoy: money(eoy), apr: iv.expected_apr })}
+                          </p>
+                          {iv.monthly_amount > 0 && (
+                            <p className="muted pl-5 text-xs font-medium">
+                              {iv.monthly_kind === "withdraw"
+                                ? tr("Taking out {v0}/mo (income)", { v0: money(iv.monthly_amount) })
+                                : tr("Putting in {v0}/mo (expense)", { v0: money(iv.monthly_amount) })}
+                            </p>
+                          )}
+                        </button>
+                        <span className="shrink-0 text-xs">
+                          {added > 0 && (
+                            <span className="chip">
+                              +{money(added)} this month
+                            </span>
+                          )}
+                          {taken > 0 && (
+                            <span
+                              className="chip"
+                              style={{
+                                background: "var(--over-soft)",
+                                color: "var(--over)",
+                              }}
+                            >
+                              −{money(taken)} this month
+                            </span>
+                          )}
+                        </span>
+                        <QuickAdd
+                          label={tr("withdrawal from {v0}", { v0: iv.name })}
+                          variant="withdraw"
+                          onSubmit={(amount) => quickWithdraw(iv.id, amount)}
+                        />
+                        <QuickAdd
+                          label={tr("contribution to {v0}", { v0: iv.name })}
+                          onSubmit={(amount) => quickContribute(iv.id, amount)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            )}
+
+
+            {/* ======== MONEY OUT ======== */}
+            <FlowHeader dir="out" />
             <KindSection kind="expense" />
 
             {/* -------- Custom pinned sections -------- */}
             {cats
-              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id))
+              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id) && c.kind === "expense")
               .map((p) => {
                 const children = cats.filter((c) => c.parent_id === p.id);
                 const members = [p, ...children];
@@ -1913,112 +2102,6 @@ export default function MonthPage() {
                             </p>
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* -------- Investments -------- */}
-            {showInvs && (
-            <div className="card p-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">
-                  {tr("Investments")}
-                </h2>
-                <div className="flex items-center gap-3">
-                  {totalInvested > 0 && (
-                    <span
-                      className="font-display font-semibold"
-                      style={{ color: "var(--mint)" }}
-                    >
-                      {money(totalInvested)}
-                    </span>
-                  )}
-                  <button
-                    className="btn btn-ghost !px-3 !py-1 !text-sm"
-                    onClick={() => {
-                      setInvDraft(emptyInvDraft());
-                      setInvOpen(true);
-                    }}
-                  >
-                    {tr("+ Add")}
-                  </button>
-                </div>
-              </div>
-              {invs.length === 0 ? (
-                <p className="muted py-2 text-sm">
-                  {tr("Track brokerage, retirement, crypto or your house fund — and watch the balance grow with each contribution.")}
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {invs.map((iv) => {
-                    const added = invAddedThisMonth.get(iv.id) ?? 0;
-                    const taken = invWithdrawnThisMonth.get(iv.id) ?? 0;
-                    const now = new Date();
-                    const monthsToDec = 12 - now.getMonth();
-                    const eoy = projectInvestment(
-                      iv.balance,
-                      iv.expected_apr,
-                      0,
-                      monthsToDec
-                    );
-                    return (
-                      <div
-                        key={iv.id}
-                        className="card-soft flex items-center gap-2 p-4"
-                      >
-                        <button
-                          className="min-w-0 flex-1 text-left"
-                          onClick={() => {
-                            setInvDraft(invToDraft(iv));
-                            setInvOpen(true);
-                          }}
-                        >
-                          <p className="flex items-center gap-2.5 truncate text-sm font-semibold">
-                            <CategoryDot name={iv.name} />
-                            {iv.name}
-                          </p>
-                          <p className="faint pl-5 text-xs">
-                            {tr("{bal} now · ~{eoy} by Dec at {apr}%", { bal: money(iv.balance), eoy: money(eoy), apr: iv.expected_apr })}
-                          </p>
-                          {iv.monthly_amount > 0 && (
-                            <p className="muted pl-5 text-xs font-medium">
-                              {iv.monthly_kind === "withdraw"
-                                ? tr("Taking out {v0}/mo (income)", { v0: money(iv.monthly_amount) })
-                                : tr("Putting in {v0}/mo (expense)", { v0: money(iv.monthly_amount) })}
-                            </p>
-                          )}
-                        </button>
-                        <span className="shrink-0 text-xs">
-                          {added > 0 && (
-                            <span className="chip">
-                              +{money(added)} this month
-                            </span>
-                          )}
-                          {taken > 0 && (
-                            <span
-                              className="chip"
-                              style={{
-                                background: "var(--over-soft)",
-                                color: "var(--over)",
-                              }}
-                            >
-                              −{money(taken)} this month
-                            </span>
-                          )}
-                        </span>
-                        <QuickAdd
-                          label={tr("withdrawal from {v0}", { v0: iv.name })}
-                          variant="withdraw"
-                          onSubmit={(amount) => quickWithdraw(iv.id, amount)}
-                        />
-                        <QuickAdd
-                          label={tr("contribution to {v0}", { v0: iv.name })}
-                          onSubmit={(amount) => quickContribute(iv.id, amount)}
-                        />
                       </div>
                     );
                   })}

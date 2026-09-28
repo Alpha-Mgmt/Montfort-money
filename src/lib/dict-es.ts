@@ -887,4 +887,6 @@ export const es: Record<string, string> = {
   "Remove deduction": "Quitar deducción",
   "+ Add deduction": "+ Agregar deducción",
   "A new name changes it on every paycheck.": "El nombre nuevo se cambia en todos tus cheques.",
+  "Money in": "Lo que entra",
+  "Money out": "Lo que sale",
 };
