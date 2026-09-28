@@ -1021,8 +1021,13 @@ export default function MonthPage() {
     const hasDetail = items.length > 0 || loose.length > 0;
     const isCollapsed = collapsed.has(cat.id);
 
-    // one plan item and nothing else logged: a single line is enough
-    if (items.length === 1 && loose.length === 0 && !isUncat(cat.id)) {
+    // one plan item named like its category and nothing else logged: one line is enough
+    const norm = (x: string) =>
+      x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const sameName =
+      items.length === 1 &&
+      (norm(items[0].item.title).startsWith(norm(cat.name)) || norm(cat.name).startsWith(norm(items[0].item.title)));
+    if (sameName && loose.length === 0 && !isUncat(cat.id)) {
       return (
         <PlanItemRow
           item={items[0].item}
@@ -1225,8 +1230,8 @@ export default function MonthPage() {
       const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
       if (!n) continue;
       const g1 = it.taxes && it.taxes.gross > 0 ? it.taxes.gross : it.amount;
-      const c = members.find((m) => m.id === it.category_id)!;
-      const name = c.id === g.id && g.children.length ? tr("Other") : c.name;
+      // one line per kind of pay (Sueldo, Stipend, Bono…), whatever category it sits in
+      const name = it.title.trim() || g.name;
       grossBy.set(name, (grossBy.get(name) ?? 0) + g1 * n);
       gross += g1 * n;
       if (it.frequency === "semimonthly" || it.frequency === "biweekly" || it.frequency === "weekly") checks += n;
