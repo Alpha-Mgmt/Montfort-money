@@ -462,10 +462,13 @@ export default function MonthPage() {
     ).frequency;
   }, [recurring]);
 
-  const goalsPlanMonthly = goals.reduce((sum, g) => {
-    const m = goalMath(g.target_amount, g.saved, g.target_date, primaryFreq);
-    return sum + (m.perMonth ?? 0);
-  }, 0);
+  const goalAuto = (g: Goal) => goalMath(g.target_amount, g.saved, g.target_date, primaryFreq).perMonth ?? 0;
+  const goalPlanFor = (g: Goal) => {
+    const v = g.month_plans?.[month.slice(0, 7)];
+    if (v != null) return Number(v);
+    return g.monthly_plan != null ? Number(g.monthly_plan) : goalAuto(g);
+  };
+  const goalsPlanMonthly = goals.reduce((sum, g) => sum + goalPlanFor(g), 0);
 
   // planned monthly investment flows (deposits = expense side, withdrawals = income side)
   const invPlanDeposit = invs
@@ -2252,12 +2255,28 @@ export default function MonthPage() {
                               {tr("{saved} of {target} · {pct}%", { saved: money(g.saved), target: money(g.target_amount), pct })}
                             </p>
                           </button>
-                          <span className="shrink-0 text-xs">
-                            {added > 0 && (
-                              <span className="chip">
-                                {tr("+{amt} this month", { amt: money(added) })}
-                              </span>
-                            )}
+                          <span className="shrink-0 text-right">
+                            <DebtPlanEditor
+                              plan={goalPlanFor(g)}
+                              base={goalAuto(g)}
+                              paid={added}
+                              onSave={async (amount, scope) => {
+                                const supabase = createClient();
+                                const key = month.slice(0, 7);
+                                const mp = { ...(g.month_plans ?? {}) };
+                                const patch: Record<string, unknown> = {};
+                                if (scope === "all") {
+                                  delete mp[key];
+                                  patch.monthly_plan = amount;
+                                } else if (scope === "reset") {
+                                  if (key in mp) delete mp[key];
+                                  else patch.monthly_plan = null;
+                                } else mp[key] = amount;
+                                patch.month_plans = Object.keys(mp).length ? mp : null;
+                                await supabase.from("goals").update(patch).eq("id", g.id);
+                                load(month);
+                              }}
+                            />
                           </span>
                           <QuickAdd
                             label={tr("contribution to {v0}", { v0: g.name })}

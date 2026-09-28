@@ -142,6 +142,10 @@ export type Goal = {
   target_date: string | null;
   saved: number;
   archived: boolean;
+  /** fixed plan per month (null = calculated from target & date) */
+  monthly_plan?: number | null;
+  /** one-month plans: { "2026-10": 150 } */
+  month_plans?: Record<string, number> | null;
 };
 
 export type Recurrence = "none" | "weekly" | "biweekly" | "monthly" | "yearly";

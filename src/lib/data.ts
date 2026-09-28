@@ -180,13 +180,14 @@ export async function fetchGoals(): Promise<Goal[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("goals")
-    .select("id,name,target_amount,target_date,saved,archived")
+    .select("*")
     .eq("archived", false)
     .order("created_at");
   return (data ?? []).map((g: any) => ({
     ...g,
     target_amount: Number(g.target_amount),
     saved: Number(g.saved),
+    monthly_plan: g.monthly_plan == null ? null : Number(g.monthly_plan),
   })) as Goal[];
 }
 
