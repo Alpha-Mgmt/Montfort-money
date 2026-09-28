@@ -494,12 +494,32 @@ export default function MonthPage() {
     cats
       .filter((c) => c.kind === "income")
       .reduce((s, c) => s + planFor(c.id), 0) + invPlanWithdraw;
-  const planExpense =
+  const planExpenseCats =
     cats
       .filter((c) => c.kind === "expense")
       .reduce((s, c) => s + planFor(c.id), 0) +
-    (planByCat.get("uncategorized")?.limit_amount ?? plannedIn("uncategorized")) +
-    invPlanDeposit;
+    (planByCat.get("uncategorized")?.limit_amount ?? plannedIn("uncategorized"));
+  // debts: plan lines that ARE a debt payment, plus debts with no plan line this month
+  const liveDebts = debts.filter((d) => !d.archived && d.balance > 0);
+  const DEBTY = /debt|deuda|loan|pr[ée]stamo|card|tarjeta|credit|cr[ée]dito|mortgage|hipoteca/i;
+  const catNameById = new Map(cats.map((c) => [c.id, c.name]));
+  let debtItemPlan = 0;
+  const coveredDebt = new Set<string>();
+  for (const [catId, list] of plannedByCat) {
+    for (const p of list) {
+      if (p.item.kind !== "expense") continue;
+      const t = p.item.title.toLowerCase();
+      const hit = liveDebts.filter((d) => t.includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(t));
+      hit.forEach((d) => coveredDebt.add(d.id));
+      if (hit.length || DEBTY.test(p.item.title) || DEBTY.test(catNameById.get(catId) ?? "")) debtItemPlan += p.total;
+    }
+  }
+  const debtOnlyPlan = liveDebts.filter((d) => !coveredDebt.has(d.id)).reduce((s, d) => s + d.planned_payment, 0);
+  const planDebts = debtItemPlan + debtOnlyPlan;
+  const planGoals = goalsPlanMonthly;
+  // everything that leaves: spending + debts + goals + investment deposits
+  const planExpense = planExpenseCats + debtOnlyPlan + planGoals + invPlanDeposit;
+  const planSpending = Math.max(0, planExpenseCats - debtItemPlan);
   const netWorthShown =
     totalInvested -
     totalDebt +
@@ -1447,8 +1467,18 @@ export default function MonthPage() {
   function FlowHeader({ dir }: { dir: "in" | "out" }) {
     const actual = dir === "in" ? incomeTotal : expenseTotal;
     const plan = dir === "in" ? planIncome : planExpense;
+    const parts =
+      dir === "out"
+        ? [
+            { k: tr("Spending"), a: spendingOnly, p: planSpending },
+            { k: tr("Debts"), a: debtPaidTotal, p: planDebts },
+            { k: tr("Goals"), a: goalContribTotal, p: planGoals },
+            { k: tr("Investments"), a: invContribTotal, p: invPlanDeposit },
+          ].filter((x) => x.a > 0 || x.p > 0)
+        : [];
     return (
-      <div className="mt-2 flex items-end justify-between gap-3 border-b pb-2" style={{ borderColor: "var(--border)" }}>
+      <div className="mt-2 border-b pb-2" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-end justify-between gap-3">
         <h2 className="font-display text-xl font-semibold">
           <span className={dir === "in" ? "text-grad" : undefined}>{dir === "in" ? tr("Money in") : tr("Money out")}</span>
         </h2>
@@ -1456,6 +1486,16 @@ export default function MonthPage() {
           {money(actual)}
           <span className="muted text-sm font-medium"> / {money(plan)}</span>
         </span>
+      </div>
+      {parts.length > 1 && (
+        <div className="faint mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+          {parts.map((x) => (
+            <span key={x.k}>
+              {x.k} {money(x.a)} / {money(x.p)}
+            </span>
+          ))}
+        </div>
+      )}
       </div>
     );
   }
@@ -1489,7 +1529,7 @@ export default function MonthPage() {
             {money(total)}
             <span className="muted text-sm font-medium">
               {" "}
-              / {money(kind === "income" ? planIncome - empPlan : planExpense)}
+              / {money(kind === "income" ? planIncome - empPlan : planExpenseCats)}
             </span>
           </span>
         </div>
