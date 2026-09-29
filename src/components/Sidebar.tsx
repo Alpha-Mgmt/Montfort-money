@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/Logo";
+import { openQuickLog } from "@/components/QuickLog";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
 import { navItems, visibleTools, ownerItems, isActive } from "@/components/nav-items";
@@ -21,6 +22,14 @@ export function Sidebar() {
       <div className="mt-5">
         <SpaceSwitcher compact />
       </div>
+      <button
+        onClick={openQuickLog}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white"
+        style={{ background: "linear-gradient(120deg, #0ea472, #0d8bd9)", boxShadow: "0 6px 18px rgba(14,139,170,.25)" }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        {t("Log money")}
+      </button>
       <nav>
         {navItems.filter((n) => n.href !== "/app/settings").map((n) => (
           <Link

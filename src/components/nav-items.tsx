@@ -21,20 +21,11 @@ export const navItems = [
   },
   {
     href: "/app/forecast",
-    label: "Forecast",
+    label: "Future",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 17 9 11l4 4 8-8" />
         <path d="M15 7h6v6" />
-      </svg>
-    ),
-  },
-  {
-    href: "/app/tasks",
-    label: "Tasks",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="m5 12 4 4L19 6" />
       </svg>
     ),
   },
@@ -77,33 +68,21 @@ export const toolItems = [
     ),
   },
   {
-    href: "/app/future",
-    label: "Future",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    ),
-  },
-  {
-    href: "/app/overview",
-    label: "All together",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="18" height="7" rx="1.5" />
-      </svg>
-    ),
-  },
-  {
     href: "/app/debts",
     label: "Debt payoff",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 4v16h16" />
         <path d="M7 8l4 4 3-3 5 7" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/tasks",
+    label: "Tasks",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m5 12 4 4L19 6" />
       </svg>
     ),
   },

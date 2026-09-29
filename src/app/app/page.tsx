@@ -58,6 +58,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { ConfirmPay } from "@/components/ConfirmPay";
 import { type LineItemFreq } from "@/components/LineItemAdd";
 import { MonthPicker } from "@/components/MonthPicker";
+import { projectFull } from "@/lib/plan";
 import { CategoryEditSheet } from "@/components/CategoryEditSheet";
 import { MonthRail, type RailLine, type RailSlice, type RailTrend } from "@/components/MonthRail";
 import { AIAssistant } from "@/components/AIAssistant";
@@ -216,6 +217,13 @@ export default function MonthPage() {
   useEffect(() => {
     setLoading(true);
     load(month);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
+  // the quick "+" logger saved something: refresh the month
+  useEffect(() => {
+    const on = () => load(month);
+    window.addEventListener("mf:changed", on);
+    return () => window.removeEventListener("mf:changed", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
@@ -515,7 +523,8 @@ export default function MonthPage() {
     .reduce((s, i) => s + i.monthly_amount, 0);
 
   // 13-month plan from recurring items (index 0 = current month)
-  const projection = useMemo(() => projectMonths(recurring, 13), [recurring]);
+  // plan lines + debts, goals and investments (same as every other page)
+  const projection = useMemo(() => projectFull(recurring, debts, goals, invs, 13), [recurring, debts, goals, invs]);
   const redMonths = projection
     .slice(0, 12)
     .filter((p) => p.net < -0.005)

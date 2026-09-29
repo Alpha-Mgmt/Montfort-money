@@ -7,10 +7,32 @@ import { RegisterSW } from "@/components/RegisterSW";
 // never depends on fetching anything from Google — hermetic builds.
 
 export const metadata: Metadata = {
-  title: "Montfort Money",
+  metadataBase: new URL("https://montfortmoney.com"),
+  title: "Montfort Money — know your month before it happens",
   description:
-    "Budgets, spending and money tasks in one place. Part of the Montfort family.",
+    "Plan your month, see the days you'd come up short before they happen, and let Montfort AI do the math. Debts, goals, trips and couples in one place.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://montfortmoney.com",
+    siteName: "Montfort Money",
+    title: "Montfort Money — know your month before it happens",
+    description: "See the days you'd come up short, plan with Montfort AI, and split trips with friends.",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Montfort Money" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Montfort Money — know your month before it happens",
+    description: "See the days you'd come up short, plan with Montfort AI, and split trips with friends.",
+    images: ["/og.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

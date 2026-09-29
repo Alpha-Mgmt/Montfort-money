@@ -263,13 +263,13 @@ export default function DebtsPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <button
-                        className="min-w-0 text-left"
+                        className="min-w-0 flex-1 text-left"
                         onClick={() => {
                           setDraft(debtToDraft(d));
                           setSheetOpen(true);
                         }}
                       >
-                        <p className="truncate font-semibold">
+                        <p className="font-semibold leading-snug">
                           <span className="faint mr-1.5 text-xs">#{ordered.findIndex((x) => x.id === d.id) + 1}</span>
                           {d.name}
                           {isTarget && (
@@ -280,12 +280,13 @@ export default function DebtsPage() {
                         </p>
                         <p className="faint text-xs">
                           {t(debtTypeLabels[d.debt_type])} · {d.apr}% APR · {t("{amt}/mo", { amt: money(d.planned_payment) })}
+                          <span className="sm:hidden"> · {t("free {m}", { m: monthOf(o.payoffMonth) })}</span>
                         </p>
                       </button>
                       <div className="flex shrink-0 items-center gap-2">
                         <div className="text-right">
                           <p className="font-semibold tabular-nums">{money(d.balance)}</p>
-                          <p className="faint text-[11px]">{t("free {m}", { m: monthOf(o.payoffMonth) })}</p>
+                          <p className="faint hidden text-[11px] sm:block">{t("free {m}", { m: monthOf(o.payoffMonth) })}</p>
                         </div>
                         <QuickAdd label={t("payment to {v0}", { v0: d.name })} onSubmit={(amount) => pay(d, amount)} />
                       </div>

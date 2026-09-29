@@ -5,6 +5,7 @@ import { TabBar } from "@/components/TabBar";
 import { Sidebar } from "@/components/Sidebar";
 import { SpaceSwitcher } from "@/components/SpaceSwitcher";
 import { AppProvider } from "@/lib/i18n";
+import { QuickLog } from "@/components/QuickLog";
 
 export default function AppLayout({
   children,
@@ -29,6 +30,7 @@ export default function AppLayout({
         </div>
       </div>
       <TabBar />
+      <QuickLog />
     </AppProvider>
   );
 }
