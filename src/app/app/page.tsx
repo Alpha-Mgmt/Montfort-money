@@ -1054,7 +1054,11 @@ export default function MonthPage() {
             return;
           }
           const supabase = createClient();
-          await supabase.from("categories").delete().eq("id", catId);
+          const { error } = await supabase.from("categories").delete().eq("id", catId);
+          if (error) {
+            const n = /CATEGORY_IN_USE:(\d+)/.exec(error.message)?.[1];
+            window.alert(n ? tr("This category still has {n} plan items in other months. Move them first (open each item → Category).", { n }) : error.message);
+          }
           load();
         }}
       >

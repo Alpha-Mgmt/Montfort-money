@@ -1125,4 +1125,5 @@ export const es: Record<string, string> = {
   "← All trips": "← Todos los viajes",
   "← Trips": "← Viajes",
   "Money & splits": "Dinero",
+  "This category still has {n} plan items in other months. Move them first (open each item → Category).": "Esta categoría todavía tiene {n} partidas en otros meses. Muévelas primero (abre cada partida → Categoría).",
 };

@@ -164,3 +164,12 @@ create policy "trip covers write" on storage.objects for insert to authenticated
 drop policy if exists "trip covers delete" on storage.objects;
 create policy "trip covers delete" on storage.objects for delete to authenticated
   using (bucket_id = 'trip-covers' and public.is_trip_member(((storage.foldername(name))[1])::uuid));
+
+-- only signed-in users call the trip functions; the trigger isn't an API
+revoke execute on function public.is_trip_member(uuid) from anon, public;
+revoke execute on function public.join_trip(text) from anon, public;
+revoke execute on function public.trip_invite_info(text) from anon, public;
+revoke execute on function public.trip_add_owner() from anon, public, authenticated;
+grant execute on function public.is_trip_member(uuid) to authenticated;
+grant execute on function public.join_trip(text) to authenticated;
+grant execute on function public.trip_invite_info(text) to authenticated;
