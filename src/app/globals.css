@@ -87,6 +87,13 @@ h3,
   background-clip: text;
   color: transparent;
 }
+/* the "money out" twin: coral → warm amber */
+.text-grad-out {
+  background: linear-gradient(92deg, var(--over), var(--warn));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
 .card {
   background:
