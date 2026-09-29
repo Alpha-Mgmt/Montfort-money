@@ -34,10 +34,11 @@ import {
   toggleSkip,
 } from "@/lib/recurring";
 import { monthLabel } from "@/lib/format";
-import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts } from "@/lib/taxes";
+import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts, taxTotal } from "@/lib/taxes";
 import { DeductionEditor } from "@/components/DeductionEditor";
 import { MonthPlanEdit } from "@/components/MonthPlanEdit";
 import { MoneyRow } from "@/components/MoneyRow";
+import { Sheet } from "@/components/Sheet";
 import { PlanItemSheet, type PlanItemPatch } from "@/components/PlanItemSheet";
 import {
   GoalSheet,
@@ -54,7 +55,7 @@ import {
 } from "@/lib/debt";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ConfirmPay } from "@/components/ConfirmPay";
-import { LineItemAdd, type LineItemFreq } from "@/components/LineItemAdd";
+import { type LineItemFreq } from "@/components/LineItemAdd";
 import { MonthPicker } from "@/components/MonthPicker";
 import { AIAssistant } from "@/components/AIAssistant";
 import { TxSheet, emptyTxDraft, type TxDraft } from "@/components/TxSheet";
@@ -98,6 +99,9 @@ export default function MonthPage() {
   const [planSheet, setPlanSheet] = useState<{ item: RecurringItem | null; kind: Kind; catId: string | null } | null>(null);
   // which debt/goal is showing its "this month's plan" editor
   const [planEditFor, setPlanEditFor] = useState<string | null>(null);
+  // employer breakdown sheet (group id) and the "+ add" chooser ("in" | "out")
+  const [empSheet, setEmpSheet] = useState<string | null>(null);
+  const [addMenu, setAddMenu] = useState<"in" | "out" | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
   const [accts, setAccts] = useState<Account[]>([]);
   const [txs, setTxs] = useState<Transaction[]>([]);
@@ -890,273 +894,142 @@ export default function MonthPage() {
     );
   }
 
-  function PlanItemRow({
-    item,
-    planTotal,
-    catId,
-    kind,
-    merged,
-  }: {
-    item: RecurringItem;
-    planTotal: number;
-    catId: string;
-    kind: Kind;
-    /** the category has only this item: show ONE line (the item) instead of category + item */
-    merged?: Category;
-  }) {
+  function PlanItemRow({ item, planTotal, catId, kind }: { item: RecurringItem; planTotal: number; catId: string; kind: Kind }) {
     const linked = (txByCat.get(catId) ?? []).filter((t) => t.recurring_item_id === item.id);
     const received = linked.reduce((s, t) => s + t.amount, 0);
     const nextMonth = addMonths(month, 1);
     const schedule = occurrenceDates(item, month, nextMonth).filter((d) => d < nextMonth);
-    const sub = (
-      <>
-        {tr(frequencyLabels[item.frequency])}
-        {schedule.length > 0 && <> · {schedule.map((d) => shortDate(d)).join(" · ")}</>}
-      </>
-    );
     return (
-      <div className={merged ? "-mx-2 rounded-lg px-2" : ""} style={merged ? { background: "color-mix(in srgb, var(--surface-2) 55%, transparent)" } : undefined}>
-        <MoneyRow
-          name={item.title}
-          subtitle={sub}
-          done={received}
-          plan={planTotal}
-          tone={kind === "income" ? "in" : "out"}
-          bold={!!merged}
-          onOpen={() => setPlanSheet({ item, kind, catId })}
-          onPay={!isFuture ? (amount) => quickAddTx(kind, catId, amount, item.title, "none", todayISO(), item.id) : undefined}
-          onDelete={() => deletePlanItem(item.id)}
-          deleteLabel={tr("Remove plan")}
-        >
-          {linked.length > 0 && (
-            <div className="mt-1 grid gap-0.5 pl-5">
-              {linked.map((t) => (
-                <div key={t.id} className="flex items-center gap-2 text-xs">
-                  <button onClick={() => editTx(t)} className="muted flex min-w-0 flex-1 items-center justify-between gap-3 text-left hover:opacity-80">
-                    <span className="faint">
-                      ✓ {shortDate(t.tx_date)}
-                      {t.note && t.note !== item.title ? ` · ${t.note}` : ""}
-                    </span>
-                    <span>{money(t.amount)}</span>
-                  </button>
-                  <button aria-label={tr("Delete this entry")} className="faint px-1" onClick={() => deleteTx(t.id)}>
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </MoneyRow>
-        {merged && (
-          <div className="pb-1 pl-5">
-            <LineItemAdd
-              defaultDate={quickDate}
-              placeholder={kind === "income" ? tr("e.g. bonus") : tr("e.g. tires, insurance…")}
-              onSubmit={(amount, note, freq, date) => quickAddTx(kind, catId, amount, note, freq, date)}
-            />
-          </div>
-        )}
-      </div>
+      <MoneyRow
+        name={item.title}
+        subtitle={
+          <>
+            {tr(frequencyLabels[item.frequency])}
+            {schedule.length > 0 && <> · {schedule.map((d) => shortDate(d)).join(" · ")}</>}
+            {linked.length > 0 && <> · ✓ {linked.map((t) => shortDate(t.tx_date)).join(" · ")}</>}
+          </>
+        }
+        done={received}
+        plan={planTotal}
+        tone={kind === "income" ? "in" : "out"}
+        onOpen={() => setPlanSheet({ item, kind, catId })}
+        onPay={!isFuture ? (amount) => quickAddTx(kind, catId, amount, item.title, "none", todayISO(), item.id) : undefined}
+        onDelete={() => deletePlanItem(item.id)}
+        deleteLabel={tr("Remove plan")}
+      />
     );
   }
 
-  function CategoryRow({ cat, kind }: { cat: Category; kind: Kind }) {
-    const rows = txByCat.get(cat.id) ?? [];
-    const items = plannedByCat.get(cat.id) ?? [];
-    // a tx is "loose" (tap to edit/delete) if it isn't linked to a plan item
-    // shown here — including ones whose plan item doesn't occur this month,
-    // so nothing you logged ever becomes impossible to remove
-    const shownItemIds = new Set(items.map((p) => p.item.id));
-    const loose = rows.filter(
-      (t) => !t.recurring_item_id || !shownItemIds.has(t.recurring_item_id)
-    );
-    const spent = spentIn(cat.id);
-    const plan = planFor(cat.id);
-    const isEmpty = rows.length === 0 && items.length === 0;
-    const hasDetail = items.length > 0 || loose.length > 0;
-    const isCollapsed = collapsed.has(cat.id);
-
-    // one plan item named like its category and nothing else logged: one line is enough
-    const norm = (x: string) =>
-      x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    const sameName =
-      items.length === 1 &&
-      (norm(items[0].item.title).startsWith(norm(cat.name)) || norm(cat.name).startsWith(norm(items[0].item.title)));
-    if (sameName && loose.length === 0 && !isUncat(cat.id)) {
-      return (
-        <PlanItemRow
-          item={items[0].item}
-          planTotal={items[0].total}
-          catId={cat.id}
-          kind={kind}
-          merged={cat}
-        />
-      );
-    }
-    // the group's own bucket ("General") only when something is in it
-    if (cat.name === tr("General") && isEmpty && plan === 0) return null;
-
-    return (
-      <div className="py-1.5">
-        {/* the category line reads as a subtotal — tinted, bolder */}
-        <div
-          className="-mx-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5"
-          style={{
-            background: "color-mix(in srgb, var(--surface-2) 55%, transparent)",
-          }}
-        >
-          {hasDetail ? (
-            <button
-              aria-label={isCollapsed ? tr("Expand {v0}", { v0: cat.name }) : tr("Collapse {v0}", { v0: cat.name })}
-              className="faint w-4 shrink-0 text-xs"
-              onClick={() => toggleCollapse(cat.id)}
-            >
-              {isCollapsed ? "▸" : "▾"}
-            </button>
-          ) : (
-            <span className="w-4 shrink-0" />
-          )}
-          <CategoryDot name={cat.name} />
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {cat.name}
-            {isCollapsed && hasDetail && (
-              <span className="faint ml-1.5 text-xs font-normal">
-                {items.length + loose.length}
-              </span>
-            )}
-          </span>
-          <span className="flex shrink-0 items-center gap-1 text-sm">
-            <span className={spent > 0 ? "muted" : "faint"}>
-              {money(spent)}
-            </span>
-            {items.length > 0 ? (
-              <span className="muted font-medium">/ {money(plan)}</span>
-            ) : !isUncat(cat.id) ? (
-              <PlanEditor catId={cat.id} plan={plan} />
-            ) : plan > 0 ? (
-              <span className="muted font-medium">/ {money(plan)}</span>
-            ) : null}
-          </span>
-          <LineItemAdd
-            defaultDate={quickDate}
-            placeholder={
-              kind === "income" ? tr("e.g. bonus") : tr("e.g. tires, insurance…")
-            }
-            onSubmit={(amount, note, freq, date) =>
-              quickAddTx(kind, cat.id, amount, note, freq, date)
-            }
-          />
-          {isEmpty && !isUncat(cat.id) && (
-            <DeleteCategoryButton catId={cat.id} />
-          )}
-        </div>
-        {plan > 0 && items.length === 0 && (
-          <div className="mt-1.5">
-            <ProgressBar
-              spent={kind === "income" ? Math.min(spent, plan) : spent}
-              limit={plan}
-            />
-          </div>
-        )}
-        {hasDetail && !isCollapsed && (
-          <div
-            className="mt-1 divide-y border-l pl-4 ml-2"
-            style={{ borderColor: "var(--border)" }}
-          >
-            {items.map((p) => (
-              <PlanItemRow
-                key={p.item.id}
-                item={p.item}
-                planTotal={p.total}
-                catId={cat.id}
-                kind={kind}
-              />
-            ))}
-            {loose.map((t) => (
-              <MoneyRow
-                key={t.id}
-                name={t.note || cat.name}
-                subtitle={
-                  <>
-                    ✓ {shortDate(t.tx_date)}
-                    {t.source === "plaid" && ` · ${tr("bank")}`}
-                    {t.source === "task" && ` · ${tr("from task")}`}
-                  </>
-                }
-                done={t.amount}
-                tone={kind === "income" ? "in" : "out"}
-                onOpen={() => editTx(t)}
-                onDelete={() => deleteTx(t.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function GroupBlock({
-    g,
-    kind,
-    pinnedView = false,
+  /** Group header: one line, then its rows. Every total = THIS MONTH, done / plan. */
+  function Group({
+    id,
+    name,
+    done,
+    plan,
+    tone,
+    pill,
+    onAdd,
+    planEditor,
+    onDelete,
+    children,
   }: {
-    g: Category & { children: Category[] };
-    kind: Kind;
-    pinnedView?: boolean;
+    id: string;
+    name: string;
+    done: number;
+    plan: number;
+    tone: "in" | "out";
+    pill?: string;
+    onAdd?: () => void;
+    planEditor?: React.ReactNode;
+    onDelete?: () => void;
+    children?: React.ReactNode;
   }) {
-    const members = [g as Category, ...g.children];
-    const gTotal = members.reduce((s, c) => s + spentIn(c.id), 0);
-    const gPlanned = members.reduce((s, c) => s + planFor(c.id), 0);
-    const gCollapsed = collapsed.has(`g-${g.id}`);
+    const col = collapsed.has(id);
+    const color = tone === "in" ? "var(--mint)" : "var(--over)";
     return (
-      <div className="py-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-            <button
-              aria-label={gCollapsed ? tr("Expand {v0}", { v0: g.name }) : tr("Collapse {v0}", { v0: g.name })}
-              className="faint w-4 shrink-0 text-xs"
-              onClick={() => toggleCollapse(`g-${g.id}`)}
-            >
-              {gCollapsed ? "▸" : "▾"}
+      <div>
+        <div className="flex items-center gap-2 pb-1 pt-3">
+          <button className="faint w-3 shrink-0 text-xs" onClick={() => toggleCollapse(id)} aria-label={col ? tr("Expand {v0}", { v0: name }) : tr("Collapse {v0}", { v0: name })}>
+            {col ? "▸" : "▾"}
+          </button>
+          <CategoryDot name={name} size={9} />
+          <button className="flex min-w-0 items-center gap-2 text-left text-sm font-semibold" onClick={() => toggleCollapse(id)}>
+            <span className="truncate">{name}</span>
+            {pill && <span className="chip !py-0 text-[10px] font-medium">{pill}</span>}
+          </button>
+          <span className="ml-auto whitespace-nowrap text-sm font-semibold tabular-nums">
+            <span className={done > 0 ? "" : "faint"} style={done > 0 ? { color } : undefined}>
+              {money(done)}
+            </span>
+            {planEditor ?? (plan > 0 ? <span className="muted font-medium"> / {money(plan)}</span> : null)}
+          </span>
+          {onAdd && (
+            <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-semibold" style={{ background: "var(--mint-soft)", color: "var(--mint)" }} onClick={onAdd} aria-label={tr("Add to {v0}", { v0: name })}>
+              +
             </button>
-            <CategoryDot name={g.name} size={10} />
-            {g.name}
-            {!pinnedView && !gCollapsed && (
-              <button
-                className="faint ml-1 text-xs font-normal"
-                title={tr("Show as its own section")}
-                onClick={() => togglePin(g.id, true)}
-              >
-                {tr("↗ own section")}
-              </button>
-            )}
-          </p>
-          <p className="shrink-0 text-sm font-semibold">
-            {money(gTotal)}
-            {gPlanned > 0 && (
-              <span className="muted font-medium"> / {money(gPlanned)}</span>
-            )}
-          </p>
+          )}
+          {onDelete && <DeleteCategoryButton catId={id} />}
         </div>
-        {!gCollapsed && (
-          <div
-            className="ml-2 border-l pl-3"
-            style={{ borderColor: "var(--border)" }}
-          >
-            {members.map((c) => (
-              <CategoryRow
-                key={c.id}
-                cat={c.id === g.id ? { ...c, name: tr("General") } : c}
-                kind={kind}
-              />
-            ))}
+        {!col && (
+          <div className="divide-y pl-5" style={{ borderColor: "var(--border)" }}>
+            {children}
           </div>
         )}
       </div>
     );
   }
 
-  function EmployerCard({ g }: { g: Category & { children: Category[] } }) {
+  /** A category (and its sub-categories, flattened) as one group of rows. */
+  function CategoryGroup({ cat, kind }: { cat: Category; kind: Kind }) {
+    const members = [cat, ...cats.filter((c) => c.parent_id === cat.id)];
+    const rows = members.flatMap((c) =>
+      (plannedByCat.get(c.id) ?? []).map((p) => ({ kind: "plan" as const, c, p }))
+    );
+    const shown = new Set(rows.map((r) => r.p.item.id));
+    const loose = members.flatMap((c) =>
+      (txByCat.get(c.id) ?? []).filter((t) => !t.recurring_item_id || !shown.has(t.recurring_item_id)).map((t) => ({ c, t }))
+    );
+    const done = members.reduce((s2, c) => s2 + spentIn(c.id), 0);
+    const plan = members.reduce((s2, c) => s2 + planFor(c.id), 0);
+    const isEmpty = rows.length === 0 && loose.length === 0;
+    if (isEmpty && plan === 0 && isUncat(cat.id)) return null;
+    return (
+      <Group
+        id={cat.id}
+        name={cat.name}
+        done={done}
+        plan={plan}
+        tone={kind === "income" ? "in" : "out"}
+        onAdd={!isUncat(cat.id) ? () => setPlanSheet({ item: null, kind, catId: cat.id }) : undefined}
+        planEditor={rows.length === 0 && !isUncat(cat.id) ? <PlanEditor catId={cat.id} plan={plan} /> : undefined}
+        onDelete={isEmpty && !isUncat(cat.id) ? () => {} : undefined}
+      >
+        {rows.map((r) => (
+          <PlanItemRow key={r.p.item.id} item={r.p.item} planTotal={r.p.total} catId={r.c.id} kind={kind} />
+        ))}
+        {loose.map(({ c, t }) => (
+          <MoneyRow
+            key={t.id}
+            name={t.note || c.name}
+            subtitle={
+              <>
+                ✓ {shortDate(t.tx_date)}
+                {t.source === "plaid" && ` · ${tr("bank")}`}
+                {t.source === "task" && ` · ${tr("from task")}`}
+              </>
+            }
+            done={t.amount}
+            tone={kind === "income" ? "in" : "out"}
+            onOpen={() => editTx(t)}
+            onDelete={() => deleteTx(t.id)}
+          />
+        ))}
+        {isEmpty && <p className="faint py-2 text-xs">{tr("Nothing here yet — tap + to plan something.")}</p>}
+      </Group>
+    );
+  }
+
+  function EmployerCard({ g, inner = false }: { g: Category & { children: Category[] }; inner?: boolean }) {
     const members = [g as Category, ...g.children];
     const ids = new Set(members.map((c) => c.id));
     const dedGroup = (key: string, label: string) => {
@@ -1223,7 +1096,7 @@ export default function MonthPage() {
       });
     const showTx = payOpen.has(`tx-${g.id}`);
     return (
-      <div className="card p-6">
+      <div className={inner ? "" : "card p-6"}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="faint text-xs font-semibold uppercase tracking-wide">{tr("Your employer")}</p>
@@ -1370,7 +1243,7 @@ export default function MonthPage() {
         {showTx && (
           <div className="mt-1 divide-y" style={{ borderColor: "var(--border)" }}>
             {members.map((c) => (
-              <CategoryRow key={c.id} cat={c.id === g.id && g.children.length ? { ...c, name: tr("General") } : c} kind="income" />
+              <CategoryGroup key={c.id} cat={c.id === g.id && g.children.length ? { ...c, name: tr("General") } : c} kind="income" />
             ))}
           </div>
         )}
@@ -1392,56 +1265,30 @@ export default function MonthPage() {
     await supabase.from("profiles").update({ cash_on_hand: Object.keys(next).length ? next : null }).eq("id", user.id);
   }
 
-  function CashCard() {
+  function CashRow() {
     const [edit, setEdit] = useState(false);
     const [val, setVal] = useState(cashHere ? String(cashHere) : "");
     return (
-      <div className="card flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <div>
-          <p className="flex items-center gap-2 font-semibold">
-            <span aria-hidden>💵</span> {tr("Cash in hand")}
-          </p>
-          <p className="faint text-xs">{tr("Not income — it's money you already have. It adds to what's left this month.")}</p>
-        </div>
+      <div className="flex items-center gap-2 border-t py-2" style={{ borderColor: "var(--border)" }}>
+        <span className="mt-0.5 text-sm" aria-hidden>💵</span>
+        <button className="min-w-0 flex-1 text-left" onClick={() => setEdit(true)}>
+          <span className="block text-sm font-medium">{tr("Cash in hand")}</span>
+          <span className="faint block text-xs">{tr("Not income — it adds to what's left")}</span>
+        </button>
         {edit ? (
           <span className="flex items-center gap-1.5">
             <span className="relative">
               <span className="faint pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm">$</span>
-              <input
-                className="input !w-28 !py-1 !pl-5 !pr-2 text-sm"
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                autoFocus
-                value={val}
-                onChange={(e) => setVal(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    saveCash(parseFloat(val) || 0);
-                    setEdit(false);
-                  }
-                  if (e.key === "Escape") setEdit(false);
-                }}
-              />
+              <input className="input !w-28 !py-1 !pl-5 !pr-2 text-sm" type="number" step="0.01" min="0" inputMode="decimal" autoFocus value={val} onChange={(e) => setVal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { saveCash(parseFloat(val) || 0); setEdit(false); } if (e.key === "Escape") setEdit(false); }} />
             </span>
-            <button
-              className="btn btn-primary !px-2.5 !py-1 !text-xs"
-              onClick={() => {
-                saveCash(parseFloat(val) || 0);
-                setEdit(false);
-              }}
-            >
-              {tr("Save")}
-            </button>
-            <button className="faint px-1 text-sm" onClick={() => setEdit(false)} aria-label={tr("Cancel")}>
-              ×
-            </button>
+            <button className="btn btn-primary !px-2.5 !py-1 !text-xs" onClick={() => { saveCash(parseFloat(val) || 0); setEdit(false); }}>{tr("Save")}</button>
+            <button className="faint px-1 text-sm" onClick={() => setEdit(false)} aria-label={tr("Cancel")}>×</button>
           </span>
         ) : (
-          <button className="font-display font-semibold hover:underline" onClick={() => setEdit(true)}>
-            {cashHere > 0 ? money(cashHere) : <span className="faint text-sm font-normal">{tr("+ Add cash")}</span>}
-            {cashHere > 0 && <span className="faint text-xs font-normal"> ✎</span>}
+          <button className="text-sm tabular-nums hover:underline" onClick={() => setEdit(true)}>
+            {cashHere > 0 ? <span style={{ color: "var(--mint)" }}>{money(cashHere)}</span> : <span className="faint">{money(0)}</span>}
+            <span className="faint text-xs"> ✎</span>
           </button>
         )}
       </div>
@@ -1492,6 +1339,7 @@ export default function MonthPage() {
             {outPlan > inPlan && inPlan > 0
               ? tr("Plan spends {amt} more than comes in", { amt: money(outPlan - inPlan) })
               : tr("{pct}% of what comes in is planned to go out", { pct: Math.round(pctOut) })}
+            {leftPlan >= 0 ? ` · ${tr("{amt} left at month end", { amt: money(leftPlan) })}` : ` · ${tr("{amt} short at month end", { amt: money(-leftPlan) })}`}
           </span>
           <button className="faint hover:underline" onClick={() => toggleBox("glance")}>
             {open ? tr("Hide breakdown ▴") : tr("Breakdown ▾")}
@@ -1594,69 +1442,6 @@ export default function MonthPage() {
     );
   }
 
-  function KindSection({ kind }: { kind: Kind }) {
-    const tree = buildCategoryTree(cats, kind);
-    const standalone = kind === "income" ? tree.standalone.filter((c) => !employerIds.has(c.id)) : tree.standalone;
-    const groups = kind === "income" ? tree.groups.filter((g) => !employerIds.has(g.id)) : tree.groups;
-    const empActual = kind === "income" ? [...employerMemberIds].reduce((s2, id) => s2 + spentIn(id), 0) : 0;
-    const empPlan = kind === "income" ? [...employerMemberIds].reduce((s2, id) => s2 + planFor(id), 0) : 0;
-    const total = (kind === "income" ? incomeTotal : expenseTotal) - empActual;
-
-    return (
-      <div className="card p-6">
-        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex items-center gap-2.5">
-            <h2 className="font-display text-lg font-semibold">
-              {kind === "income" ? (employerGroups.length ? tr("Other income") : tr("Income")) : tr("Monthly expenses")}
-            </h2>
-            <button
-              className="btn btn-ghost whitespace-nowrap !px-2.5 !py-0.5 !text-xs"
-              onClick={() => setCatSheetKind(kind)}
-            >
-              {tr("+ Category")}
-            </button>
-          </div>
-          <span
-            className="font-display font-semibold"
-            style={kind === "income" ? { color: "var(--mint)" } : undefined}
-          >
-            {money(total)}
-            <span className="muted text-sm font-medium">
-              {" "}
-              / {money(kind === "income" ? planIncome - empPlan : planExpenseCats)}
-            </span>
-          </span>
-        </div>
-
-        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-          {groups
-            .filter((g) => !g.pinned)
-            .map((g) => (
-              <GroupBlock key={g.id} g={g} kind={kind} />
-            ))}
-          {standalone
-            .filter((c) => !c.pinned)
-            .map((c) => (
-              <CategoryRow key={c.id} cat={c} kind={kind} />
-            ))}
-          {(txByCat.get(uncatId(kind)) ?? []).length > 0 && (
-            <CategoryRow
-              cat={{
-                id: uncatId(kind),
-                name: tr("Uncategorized"),
-                icon: "🗂️",
-                kind,
-                parent_id: null,
-              }}
-              kind={kind}
-            />
-          )}
-        </div>
-
-      </div>
-    );
-  }
-
   return (
     <div className="grid gap-4">
       {/* Header — month control sized like the rail cards below it */}
@@ -1696,6 +1481,10 @@ export default function MonthPage() {
           defaultDate={quickDate}
           onSave={savePlanItem}
           onDelete={planSheet.item ? () => deletePlanItem(planSheet.item!.id) : undefined}
+          onLog={(amount, note, catId, date) => quickAddTx(planSheet.kind, catId ?? uncatId(planSheet.kind), amount, note, "none", date)}
+          linked={planSheet.item ? txs.filter((t) => t.recurring_item_id === planSheet.item!.id) : []}
+          onOpenTx={(t) => { setPlanSheet(null); editTx(t); }}
+          onDeleteTx={(id) => deleteTx(id)}
         />
       )}
       {loading ? (
@@ -1754,249 +1543,106 @@ export default function MonthPage() {
 
             {/* ======== MONEY IN ======== */}
             <FlowHeader dir="in" />
-            <CashCard />
-            {employerGroups.map((g) => (
-              <EmployerCard key={g.id} g={g} />
-            ))}
-            <KindSection kind="income" />
-            {/* -------- Pinned income sections -------- */}
-            {cats
-              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id) && c.kind === "income")
-              .map((p) => {
-                const children = cats.filter((c) => c.parent_id === p.id);
-                const members = [p, ...children];
-                const total = members.reduce((s, c) => s + spentIn(c.id), 0);
-                const planSum = members.reduce(
-                  (s, c) => s + planFor(c.id),
-                  0
-                );
+            <div className="card px-5 py-1">
+              {employerGroups.map((g) => {
+                const ids = [g.id, ...g.children.map((c) => c.id)];
+                const idSet = new Set(ids);
+                let gross = 0;
+                let ded = 0;
+                let checks = 0;
+                let payItem: RecurringItem | null = null;
+                for (const it of recurring) {
+                  if (!it.active || it.kind !== "income" || !idSet.has(it.category_id ?? "")) continue;
+                  const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
+                  if (!n) continue;
+                  const g1 = it.taxes && it.taxes.gross > 0 ? it.taxes.gross : it.amount;
+                  gross += g1 * n;
+                  ded += (it.taxes && it.taxes.gross > 0 ? taxTotal(it.taxes) : 0) * n;
+                  if (it.taxes && it.taxes.gross > 0) checks += n;
+                  if (!payItem || it.amount > payItem.amount) payItem = it;
+                }
+                const received = ids.reduce((a, id) => a + spentIn(id), 0);
+                const planNet = ids.reduce((a, id) => a + planFor(id), 0);
+                const pi = payItem as RecurringItem | null;
                 return (
-                  <div key={p.id} className="card p-6">
-                    <div className="mb-1 flex items-center justify-between">
-                      <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
-                        <CategoryDot name={p.name} size={10} />
-                        {p.name}{" "}
-                        <span className="faint text-xs font-normal">
-                          {p.kind === "income" ? "income" : "expenses"}
-                        </span>
-                      </h2>
-                      <span
-                        className="font-display font-semibold"
-                        style={
-                          p.kind === "income"
-                            ? { color: "var(--mint)" }
-                            : undefined
-                        }
-                      >
-                        {money(total)}
-                        {planSum > 0 && (
-                          <span className="muted text-sm font-medium">
-                            {" "}
-                            / {money(planSum)}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div
-                      className="divide-y"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      {members.map((c) => (
-                        <CategoryRow
-                          key={c.id}
-                          cat={c.id === p.id ? { ...c, name: tr("General") } : c}
-                          kind={p.kind}
-                        />
-                      ))}
-                    </div>
-                    <button
-                      className="faint mt-3 text-xs underline underline-offset-4"
-                      onClick={() => togglePin(p.id, false)}
-                    >
-                      {tr("↙ Move back into")}
-{" "}
-                      {p.kind === "income" ? tr("Income") : tr("Expenses")}
-                    </button>
-                  </div>
+                  <MoneyRow
+                    key={g.id}
+                    name={g.name}
+                    bold
+                    subtitle={
+                      gross > 0 ? (
+                        <>
+                          {tr("Gross {g} · deductions −{d} ({p}%)", { g: money(gross), d: money(ded), p: gross ? Math.round((ded / gross) * 100) : 0 })}
+                          {checks > 0 && ` · ${tr("{n} payments", { n: checks })}`} · <u>{tr("see breakdown")}</u>
+                        </>
+                      ) : (
+                        tr("No pay planned this month.")
+                      )
+                    }
+                    done={received}
+                    plan={planNet}
+                    tone="in"
+                    onOpen={() => setEmpSheet(g.id)}
+                    onPay={pi && !isFuture ? (amount) => quickAddTx("income", pi.category_id ?? g.id, amount, pi.title, "none", todayISO(), pi.id) : undefined}
+                    payLabel={tr("Add to {v0}", { v0: g.name })}
+                  />
                 );
               })}
-
-            {/* -------- Investments -------- */}
-            {showInvs && (
-            <div className="card p-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">
-                  {tr("Investments")}
-                </h2>
-                <div className="flex items-center gap-3">
-                  {totalInvested > 0 && (
-                    <span
-                      className="font-display font-semibold"
-                      style={{ color: "var(--mint)" }}
-                    >
-                      {money(totalInvested)}
-                    </span>
-                  )}
-                  <button
-                    className="btn btn-ghost !px-3 !py-1 !text-sm"
-                    onClick={() => {
-                      setInvDraft(emptyInvDraft());
-                      setInvOpen(true);
-                    }}
-                  >
-                    {tr("+ Add")}
-                  </button>
-                </div>
-              </div>
-              {invs.length === 0 ? (
-                <p className="muted py-2 text-sm">
-                  {tr("Track brokerage, retirement, crypto or your house fund — and watch the balance grow with each contribution.")}
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {invs.map((iv) => {
-                    const added = invAddedThisMonth.get(iv.id) ?? 0;
-                    const taken = invWithdrawnThisMonth.get(iv.id) ?? 0;
-                    const now = new Date();
-                    const eoy = projectInvestment(iv.balance, iv.expected_apr, 0, 12 - now.getMonth());
-                    const isW = iv.monthly_kind === "withdraw";
-                    return (
-                      <MoneyRow
-                        key={iv.id}
-                        name={iv.name}
-                        subtitle={
-                          <>
-                            {tr("{bal} now · ~{eoy} by Dec at {apr}%", { bal: money(iv.balance), eoy: money(eoy), apr: iv.expected_apr })}
-                            {taken > 0 && ` · −${money(taken)} ${tr("taken out")}`}
-                          </>
-                        }
-                        done={isW ? taken : added}
-                        plan={iv.monthly_amount > 0 ? iv.monthly_amount : 0}
-                        tone="in"
-                        onOpen={() => {
-                          setInvDraft(invToDraft(iv));
-                          setInvOpen(true);
-                        }}
-                        onPay={(amount) => (isW ? quickWithdraw(iv.id, amount) : quickContribute(iv.id, amount))}
-                        payLabel={isW ? tr("withdrawal from {v0}", { v0: iv.name }) : tr("contribution to {v0}", { v0: iv.name })}
-                        onDelete={async () => {
-                          await createClient().from("investments").update({ archived: true }).eq("id", iv.id);
-                          load();
-                        }}
-                        deleteLabel={tr("Archive")}
-                      />
-                    );
-                  })}
-                </div>
+              {(() => {
+                const t = buildCategoryTree(cats, "income");
+                const list = [...t.groups, ...t.standalone].filter((c) => !employerIds.has(c.id));
+                return list.map((c) => <CategoryGroup key={c.id} cat={c} kind="income" />);
+              })()}
+              {(txByCat.get(uncatId("income")) ?? []).length > 0 && (
+                <CategoryGroup cat={{ id: uncatId("income"), name: tr("Uncategorized"), icon: "🗂️", kind: "income", parent_id: null }} kind="income" />
               )}
+              {invs.filter((iv) => iv.monthly_kind === "withdraw" && iv.monthly_amount > 0).map((iv) => (
+                <MoneyRow
+                  key={iv.id}
+                  name={iv.name}
+                  subtitle={tr("Investment · balance {bal} · taking out", { bal: money(iv.balance) })}
+                  done={invWithdrawnThisMonth.get(iv.id) ?? 0}
+                  plan={iv.monthly_amount}
+                  tone="in"
+                  onOpen={() => {
+                    setInvDraft(invToDraft(iv));
+                    setInvOpen(true);
+                  }}
+                  onPay={(amount) => quickWithdraw(iv.id, amount)}
+                  payLabel={tr("withdrawal from {v0}", { v0: iv.name })}
+                />
+              ))}
+              <CashRow />
+              <div className="border-t border-dashed py-2" style={{ borderColor: "var(--border)" }}>
+                {addMenu === "in" ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setPlanSheet({ item: null, kind: "income", catId: null }); }}>{tr("Income")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setInvDraft(emptyInvDraft()); setInvOpen(true); }}>{tr("Investment")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setCatSheetKind("income"); }}>{tr("Category")}</button>
+                    <button className="faint px-1" onClick={() => setAddMenu(null)}>×</button>
+                  </div>
+                ) : (
+                  <button className="text-sm font-semibold" style={{ color: "var(--mint)" }} onClick={() => setAddMenu("in")}>
+                    {tr("+ Add income")}
+                  </button>
+                )}
+              </div>
             </div>
-            )}
-
 
             {/* ======== MONEY OUT ======== */}
             <FlowHeader dir="out" />
-            <KindSection kind="expense" />
+            <p className="faint -mt-2 text-xs">{tr("Every total here is this month: paid / plan. What you owe in total is on each line.")}</p>
+            <div className="card px-5 py-1">
+              {(() => {
+                const t = buildCategoryTree(cats, "expense");
+                return [...t.groups, ...t.standalone].map((c) => <CategoryGroup key={c.id} cat={c} kind="expense" />);
+              })()}
+              {(txByCat.get(uncatId("expense")) ?? []).length > 0 && (
+                <CategoryGroup cat={{ id: uncatId("expense"), name: tr("Uncategorized"), icon: "🗂️", kind: "expense", parent_id: null }} kind="expense" />
+              )}
 
-            {/* -------- Custom pinned sections -------- */}
-            {cats
-              .filter((c) => c.pinned && !c.parent_id && !employerIds.has(c.id) && c.kind === "expense")
-              .map((p) => {
-                const children = cats.filter((c) => c.parent_id === p.id);
-                const members = [p, ...children];
-                const total = members.reduce((s, c) => s + spentIn(c.id), 0);
-                const planSum = members.reduce(
-                  (s, c) => s + planFor(c.id),
-                  0
-                );
-                return (
-                  <div key={p.id} className="card p-6">
-                    <div className="mb-1 flex items-center justify-between">
-                      <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
-                        <CategoryDot name={p.name} size={10} />
-                        {p.name}{" "}
-                        <span className="faint text-xs font-normal">
-                          {p.kind === "income" ? "income" : "expenses"}
-                        </span>
-                      </h2>
-                      <span
-                        className="font-display font-semibold"
-                        style={
-                          p.kind === "income"
-                            ? { color: "var(--mint)" }
-                            : undefined
-                        }
-                      >
-                        {money(total)}
-                        {planSum > 0 && (
-                          <span className="muted text-sm font-medium">
-                            {" "}
-                            / {money(planSum)}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div
-                      className="divide-y"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      {members.map((c) => (
-                        <CategoryRow
-                          key={c.id}
-                          cat={c.id === p.id ? { ...c, name: tr("General") } : c}
-                          kind={p.kind}
-                        />
-                      ))}
-                    </div>
-                    <button
-                      className="faint mt-3 text-xs underline underline-offset-4"
-                      onClick={() => togglePin(p.id, false)}
-                    >
-                      {tr("↙ Move back into")}
-{" "}
-                      {p.kind === "income" ? tr("Income") : tr("Expenses")}
-                    </button>
-                  </div>
-                );
-              })}
-
-            {/* -------- Debts -------- */}
-            {showDebts && (
-            <div className="card p-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">
-                  {tr("Debts")}
-                  {totalDebt > 0 && (
-                    <a href="/app/debts" className="muted ml-2 text-xs font-normal underline-offset-4 hover:underline">
-                      {tr("Payoff plan →")}
-                    </a>
-                  )}
-                </h2>
-                <div className="flex items-center gap-3">
-                  {totalDebt > 0 && (
-                    <span
-                      className="font-display font-semibold"
-                      style={{ color: "var(--over)" }}
-                    >
-                      {money(totalDebt)}
-                    </span>
-                  )}
-                  <button
-                    className="btn btn-ghost !px-3 !py-1 !text-sm"
-                    onClick={() => {
-                      setDebtDraft(emptyDebtDraft());
-                      setDebtOpen(true);
-                    }}
-                  >
-                    {tr("+ Add")}
-                  </button>
-                </div>
-              </div>
-              {debts.length === 0 ? (
-                <p className="muted py-2 text-sm">
-                  {tr("Add a card or loan — balance, rate and payment — and I'll tell you exactly when it dies.")}
-                </p>
-              ) : (
-                <div className="grid gap-3">
+              {showDebts && liveDebts.length > 0 && (
+                <Group id="g-debts" name={tr("Debts")} pill={tr("payments this month")} done={debtPaidTotal} plan={planDebts} tone="out" onAdd={() => { setDebtDraft(emptyDebtDraft()); setDebtOpen(true); }}>
                   {debts.map((d) => {
                     const prog = debtProgress(d);
                     const pm = payoffMonth(d);
@@ -2007,28 +1653,22 @@ export default function MonthPage() {
                         name={d.name}
                         subtitle={
                           <>
-                            {tr("{amt} left", { amt: money(d.balance) })}
-                            {d.apr > 0 && ` · ${d.apr}% APR`}
+                            {tr("You owe {amt}", { amt: money(d.balance) })}
+                            {d.apr > 0 && ` · ${d.apr}%`}
                             {" · "}
                             {pm ? tr("paid off {v0}", { v0: payoffLabel(pm) }) : tr("payment doesn't cover interest")}
-                            {d.payment_due_day && ` · ${tr("Due day {v0}", { v0: d.payment_due_day })}`}
+                            {d.payment_due_day && ` · ${tr("day {v0}", { v0: d.payment_due_day })}`}
                             {prog !== null && ` · ${tr("{pct}% paid off", { pct: Math.round(prog * 100) })}`}
                           </>
                         }
                         done={paid}
                         plan={debtPlanFor(d)}
                         tone="out"
-                        onOpen={() => {
-                          setDebtDraft(debtToDraft(d));
-                          setDebtOpen(true);
-                        }}
+                        onOpen={() => { setDebtDraft(debtToDraft(d)); setDebtOpen(true); }}
                         onPay={(amount) => quickPayDebt(d.id, amount)}
                         payLabel={tr("payment to {v0}", { v0: d.name })}
                         onPlanTap={() => setPlanEditFor(planEditFor === d.id ? null : d.id)}
-                        onDelete={async () => {
-                          await createClient().from("debts").update({ archived: true }).eq("id", d.id);
-                          load();
-                        }}
+                        onDelete={async () => { await createClient().from("debts").update({ archived: true }).eq("id", d.id); load(); }}
                         deleteLabel={tr("Archive debt")}
                       >
                         {planEditFor === d.id && (
@@ -2055,41 +1695,11 @@ export default function MonthPage() {
                       </MoneyRow>
                     );
                   })}
-                </div>
+                </Group>
               )}
-            </div>
-            )}
 
-            {/* -------- Goals -------- */}
-            <div className="card p-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">{tr("Goals")}</h2>
-                <div className="flex items-center gap-3">
-                  {totalGoalSaved > 0 && (
-                    <span
-                      className="font-display font-semibold"
-                      style={{ color: "var(--mint)" }}
-                    >
-                      {money(totalGoalSaved)}
-                    </span>
-                  )}
-                  <button
-                    className="btn btn-ghost !px-3 !py-1 !text-sm"
-                    onClick={() => {
-                      setGoalDraft(emptyGoalDraft());
-                      setGoalOpen(true);
-                    }}
-                  >
-                    {tr("+ Add")}
-                  </button>
-                </div>
-              </div>
-              {goals.length === 0 ? (
-                <p className="muted py-2 text-sm">
-                  {tr("A house, a car, a watch, a trip — set a target and a date and I'll tell you exactly what each paycheck needs to give.")}
-                </p>
-              ) : (
-                <div className="grid gap-3">
+              {goals.length > 0 && (
+                <Group id="g-goals" name={tr("Goals")} pill={tr("saving this month")} done={goalContribTotal} plan={planGoals} tone="out" onAdd={() => { setGoalDraft(emptyGoalDraft()); setGoalOpen(true); }}>
                   {goals.map((g) => {
                     const m = goalMath(g.target_amount, g.saved, g.target_date, primaryFreq);
                     const added = goalAddedThisMonth.get(g.id) ?? 0;
@@ -2109,17 +1719,11 @@ export default function MonthPage() {
                         done={added}
                         plan={goalPlanFor(g)}
                         tone="out"
-                        onOpen={() => {
-                          setGoalDraft(goalToDraft(g));
-                          setGoalOpen(true);
-                        }}
+                        onOpen={() => { setGoalDraft(goalToDraft(g)); setGoalOpen(true); }}
                         onPay={(amount) => quickFundGoal(g.id, amount)}
                         payLabel={tr("contribution to {v0}", { v0: g.name })}
                         onPlanTap={() => setPlanEditFor(planEditFor === g.id ? null : g.id)}
-                        onDelete={async () => {
-                          await createClient().from("goals").update({ archived: true }).eq("id", g.id);
-                          load();
-                        }}
+                        onDelete={async () => { await createClient().from("goals").update({ archived: true }).eq("id", g.id); load(); }}
                         deleteLabel={tr("Archive goal")}
                       >
                         {planEditFor === g.id && (
@@ -2132,13 +1736,9 @@ export default function MonthPage() {
                               const key = month.slice(0, 7);
                               const mp = { ...(g.month_plans ?? {}) };
                               const patch: Record<string, unknown> = {};
-                              if (scope === "all") {
-                                delete mp[key];
-                                patch.monthly_plan = amount;
-                              } else if (scope === "reset") {
-                                if (key in mp) delete mp[key];
-                                else patch.monthly_plan = null;
-                              } else mp[key] = amount;
+                              if (scope === "all") { delete mp[key]; patch.monthly_plan = amount; }
+                              else if (scope === "reset") { if (key in mp) delete mp[key]; else patch.monthly_plan = null; }
+                              else mp[key] = amount;
                               patch.month_plans = Object.keys(mp).length ? mp : null;
                               await supabase.from("goals").update(patch).eq("id", g.id);
                               load(month);
@@ -2148,9 +1748,59 @@ export default function MonthPage() {
                       </MoneyRow>
                     );
                   })}
-                </div>
+                </Group>
               )}
+
+              {showInvs && invs.filter((iv) => iv.monthly_kind !== "withdraw").length > 0 && (
+                <Group id="g-invs" name={tr("Investments")} pill={tr("adding this month")} done={invContribTotal} plan={invPlanDeposit} tone="out" onAdd={() => { setInvDraft(emptyInvDraft()); setInvOpen(true); }}>
+                  {invs.filter((iv) => iv.monthly_kind !== "withdraw").map((iv) => {
+                    const added = invAddedThisMonth.get(iv.id) ?? 0;
+                    const eoy = projectInvestment(iv.balance, iv.expected_apr, 0, 12 - new Date().getMonth());
+                    return (
+                      <MoneyRow
+                        key={iv.id}
+                        name={iv.name}
+                        subtitle={tr("Balance {bal} · {apr}% expected · ~{eoy} by Dec", { bal: money(iv.balance), apr: iv.expected_apr, eoy: money(eoy) })}
+                        done={added}
+                        plan={iv.monthly_amount > 0 ? iv.monthly_amount : 0}
+                        tone="out"
+                        onOpen={() => { setInvDraft(invToDraft(iv)); setInvOpen(true); }}
+                        onPay={(amount) => quickContribute(iv.id, amount)}
+                        payLabel={tr("contribution to {v0}", { v0: iv.name })}
+                        onDelete={async () => { await createClient().from("investments").update({ archived: true }).eq("id", iv.id); load(); }}
+                        deleteLabel={tr("Archive")}
+                      />
+                    );
+                  })}
+                </Group>
+              )}
+
+              <div className="border-t border-dashed py-2" style={{ borderColor: "var(--border)" }}>
+                {addMenu === "out" ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setPlanSheet({ item: null, kind: "expense", catId: null }); }}>{tr("Expense")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setDebtDraft(emptyDebtDraft()); setDebtOpen(true); }}>{tr("Debt")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setGoalDraft(emptyGoalDraft()); setGoalOpen(true); }}>{tr("Goal")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setInvDraft(emptyInvDraft()); setInvOpen(true); }}>{tr("Investment")}</button>
+                    <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setCatSheetKind("expense"); }}>{tr("Category")}</button>
+                    <button className="faint px-1" onClick={() => setAddMenu(null)}>×</button>
+                  </div>
+                ) : (
+                  <button className="text-sm font-semibold" style={{ color: "var(--over)" }} onClick={() => setAddMenu("out")}>
+                    {tr("+ Add expense, debt, goal or investment")}
+                  </button>
+                )}
+              </div>
             </div>
+
+            {empSheet && (() => {
+              const g = employerGroups.find((x) => x.id === empSheet);
+              return g ? (
+                <Sheet open onClose={() => setEmpSheet(null)} title={g.name}>
+                  <EmployerCard g={g} inner />
+                </Sheet>
+              ) : null;
+            })()}
 
             <p className="faint text-xs">
               {tr("Need the full history?")}
