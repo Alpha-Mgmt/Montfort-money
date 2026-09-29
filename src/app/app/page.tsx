@@ -37,6 +37,7 @@ import { monthLabel } from "@/lib/format";
 import { hasDeduction, isEditableKey, netOf, renameDeduction, setDeduction, taxParts, taxTotal } from "@/lib/taxes";
 import { DeductionEditor } from "@/components/DeductionEditor";
 import { MonthPlanEdit } from "@/components/MonthPlanEdit";
+import { monthEvents, dailyBalances } from "@/lib/daily";
 import { MoneyRow } from "@/components/MoneyRow";
 import { Sheet } from "@/components/Sheet";
 import { PlanItemSheet, type PlanItemPatch } from "@/components/PlanItemSheet";
@@ -434,7 +435,7 @@ export default function MonthPage() {
   const incomeTotal = kindTotal("income");
   const expenseTotal = kindTotal("expense");
   // cash in hand isn't income, but it's money you have this month
-  const cashHere = Number(cashMap[month.slice(0, 7)] ?? 0);
+  const cashHere = 0; // cash lives in the CASH header (banks + cash in hand), not in the month's flows
   const net = incomeTotal - expenseTotal + cashHere;
 
   const pendingTasks = tasks.filter((t) => t.status === "pending").slice(0, 4);
@@ -541,6 +542,66 @@ export default function MonthPage() {
   const planExpense = planExpenseCats + debtOnlyPlan + planGoals + invPlanDeposit;
   const planSpending = Math.max(0, planExpenseCats - debtItemPlan);
   const plannedLeft = planIncome - planExpense + cashHere;
+
+  // ---------- CASH: banks (Plaid balances) + cash in hand, today ----------
+  const today = todayISO();
+  const curMonth = monthStartISO();
+  const bankCash = accts
+    .filter((a) => !a.archived && ["checking", "savings", "cash"].includes(a.type) && a.current_balance != null)
+    .reduce((s2, a) => s2 + Number(a.current_balance), 0);
+  const hasBanks = accts.some((a) => a.source === "plaid" && a.current_balance != null);
+  const cashInHandNow = Number(cashMap[curMonth.slice(0, 7)] ?? 0);
+  const cashNow = bankCash + cashInHandNow;
+
+  // ---------- the month, day by day ----------
+  const doneByItem = new Map<string, number>();
+  for (const t of txs) if (t.recurring_item_id) doneByItem.set(t.recurring_item_id, (doneByItem.get(t.recurring_item_id) ?? 0) + t.amount);
+  const isPast = month < curMonth;
+  const dayExtras: { title: string; amount: number; day: number | null }[] = [];
+  for (const d of liveDebts) {
+    if (coveredDebt.has(d.id)) continue;
+    const left = debtPlanFor(d) - (debtPaidThisMonth.get(d.id) ?? 0);
+    if (left > 0) dayExtras.push({ title: d.name, amount: -left, day: d.payment_due_day ?? 15 });
+  }
+  for (const g of goals) {
+    const left = goalPlanFor(g) - (goalAddedThisMonth.get(g.id) ?? 0);
+    if (left > 0) dayExtras.push({ title: g.name, amount: -left, day: null });
+  }
+  for (const iv of invs) {
+    if (!(iv.monthly_amount > 0)) continue;
+    if (iv.monthly_kind === "withdraw") {
+      const left = iv.monthly_amount - (invWithdrawnThisMonth.get(iv.id) ?? 0);
+      if (left > 0) dayExtras.push({ title: iv.name, amount: left, day: 1 });
+    } else {
+      const left = iv.monthly_amount - (invAddedThisMonth.get(iv.id) ?? 0);
+      if (left > 0) dayExtras.push({ title: iv.name, amount: -left, day: 1 });
+    }
+  }
+  const events = isPast
+    ? []
+    : monthEvents({
+        month,
+        today: month === curMonth ? today : month,
+        items: recurring,
+        doneByItem: month === curMonth ? doneByItem : new Map(),
+        extras: dayExtras,
+      });
+  // where the month starts: today's cash (this month) or an estimate (future months)
+  const monthStartCash = (() => {
+    if (month === curMonth) return cashNow;
+    let bal = cashNow;
+    const [cy, cm] = curMonth.split("-").map(Number);
+    const daysIn = new Date(cy, cm, 0).getDate();
+    const leftFrac = Math.max(0, (daysIn - Number(today.slice(8, 10))) / daysIn);
+    for (const p of projection) {
+      if (p.month >= month) break;
+      bal += p.month === curMonth ? p.net * leftFrac : p.net;
+    }
+    return bal;
+  })();
+  const balances = isPast ? new Map<string, number>() : dailyBalances(month, month === curMonth ? today : month, monthStartCash, events);
+  const endOfMonth = isPast ? null : monthStartCash + events.reduce((a, e) => a + e.amount, 0);
+  const LOW = 1000;
   const netWorthShown =
     totalInvested -
     totalDebt +
@@ -832,14 +893,14 @@ export default function MonthPage() {
     if (!editing) {
       return (
         <button
-          className="faint hover:underline"
+          className="faint ml-1 font-medium hover:underline"
           title={tr("Set this month's plan")}
           onClick={() => {
             setVal(plan > 0 ? String(plan) : "");
             setEditing(true);
           }}
         >
-          / {plan > 0 ? money(plan) : "plan"}
+          / {plan > 0 ? money(plan) : `+ ${tr("plan")}`}
         </button>
       );
     }
@@ -947,15 +1008,14 @@ export default function MonthPage() {
     const col = collapsed.has(id);
     const color = tone === "in" ? "var(--mint)" : "var(--over)";
     return (
-      <div>
-        <div className="flex items-center gap-2 pb-1 pt-3">
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3">
           <button className="faint w-3 shrink-0 text-xs" onClick={() => toggleCollapse(id)} aria-label={col ? tr("Expand {v0}", { v0: name }) : tr("Collapse {v0}", { v0: name })}>
             {col ? "▸" : "▾"}
           </button>
-          <CategoryDot name={name} size={9} />
           <button className="flex min-w-0 items-center gap-2 text-left text-sm font-semibold" onClick={() => toggleCollapse(id)}>
             <span className="truncate">{name}</span>
-            {pill && <span className="chip !py-0 text-[10px] font-medium">{pill}</span>}
+            {pill && <span className="chip !py-0 text-[10px] font-medium max-sm:!hidden">{pill}</span>}
           </button>
           <span className="ml-auto whitespace-nowrap text-sm font-semibold tabular-nums">
             <span className={done > 0 ? "" : "faint"} style={done > 0 ? { color } : undefined}>
@@ -971,7 +1031,7 @@ export default function MonthPage() {
           {onDelete && <DeleteCategoryButton catId={id} />}
         </div>
         {!col && (
-          <div className="divide-y pl-5" style={{ borderColor: "var(--border)" }}>
+          <div className="divide-y border-t px-4" style={{ borderColor: "var(--border)" }}>
             {children}
           </div>
         )}
@@ -992,7 +1052,7 @@ export default function MonthPage() {
     const done = members.reduce((s2, c) => s2 + spentIn(c.id), 0);
     const plan = members.reduce((s2, c) => s2 + planFor(c.id), 0);
     const isEmpty = rows.length === 0 && loose.length === 0;
-    if (isEmpty && plan === 0 && isUncat(cat.id)) return null;
+    if (isEmpty && plan === 0) return null;
     return (
       <Group
         id={cat.id}
@@ -1024,7 +1084,6 @@ export default function MonthPage() {
             onDelete={() => deleteTx(t.id)}
           />
         ))}
-        {isEmpty && <p className="faint py-2 text-xs">{tr("Nothing here yet — tap + to plan something.")}</p>}
       </Group>
     );
   }
@@ -1251,18 +1310,196 @@ export default function MonthPage() {
     );
   }
 
-  async function saveCash(amount: number | null) {
+  async function saveCash(amount: number | null, forMonth: string = month) {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
     const next = { ...cashMap };
-    const key = month.slice(0, 7);
+    const key = forMonth.slice(0, 7);
     if (amount && amount > 0) next[key] = Math.round(amount * 100) / 100;
     else delete next[key];
     setCashMap(next);
     await supabase.from("profiles").update({ cash_on_hand: Object.keys(next).length ? next : null }).eq("id", user.id);
+  }
+
+  function MonthCalendar() {
+    const [y, m] = month.split("-").map(Number);
+    const first = new Date(y, m - 1, 1);
+    const days = new Date(y, m, 0).getDate();
+    const lead = (first.getDay() + 6) % 7; // Monday first
+    const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, k) => toISO(new Date(y, m - 1, k + 1)))];
+    const short = (v: number) => {
+      const a = Math.abs(v);
+      const t = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `${Math.round(a)}`;
+      return (v < 0 ? "−" : "") + t;
+    };
+    const wd = [tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"), tr("Fri"), tr("Sat"), tr("Sun")].map((d) => d.slice(0, 1));
+    const bad = [...balances.entries()].filter(([, v]) => v < 0);
+    return (
+      <div className="card p-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="font-display text-sm font-semibold">{tr("{m} day by day", { m: monthLabel(month) })}</h3>
+          {month !== curMonth && !isPast && <span className="faint text-[11px]">{tr("estimate")}</span>}
+        </div>
+        {isPast ? (
+          <p className="faint text-xs">{tr("This month already happened — the calendar shows the days ahead.")}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-7 gap-1 text-[11px]">
+              {wd.map((d, k) => (
+                <div key={k} className="faint pb-0.5 text-center font-semibold">{d}</div>
+              ))}
+              {cells.map((iso, k) => {
+                if (!iso) return <div key={k} />;
+                const v = balances.get(iso);
+                const dayN = Number(iso.slice(8, 10));
+                const isToday = iso === today;
+                const bg = v == null ? "var(--surface-2)" : v < 0 ? "var(--over-soft)" : v < LOW ? "var(--warn-soft)" : "var(--mint-soft)";
+                const fg = v == null ? "var(--text-faint)" : v < 0 ? "var(--over)" : v < LOW ? "var(--warn)" : "var(--mint)";
+                const ev = events.filter((e) => e.date === iso);
+                return (
+                  <div
+                    key={k}
+                    title={ev.length ? ev.map((e) => `${e.title} ${e.amount < 0 ? "−" : "+"}${money(Math.abs(e.amount))}`).join("\n") : undefined}
+                    className="flex aspect-square flex-col justify-between rounded-lg p-1"
+                    style={{ background: bg, outline: isToday ? "2px solid var(--text)" : undefined, opacity: v == null ? 0.55 : 1 }}
+                  >
+                    <b className="font-semibold">{dayN}</b>
+                    {v != null && <span className="tabnum text-[9.5px]" style={{ color: fg }}>{short(v)}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="faint mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--mint-soft)" }} />{tr("fine")}</span>
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--warn-soft)" }} />{tr("under {amt}", { amt: money(LOW) })}</span>
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--over-soft)" }} />{tr("not enough")}</span>
+            </div>
+            {bad.length > 0 && (
+              <p className="mt-2 text-xs" style={{ color: "var(--over)" }}>
+                {tr("{n} days you wouldn't cover everything — first one: {d}", { n: bad.length, d: shortDate(bad[0][0]) })}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  function NextDays() {
+    const from = month === curMonth ? today : month;
+    const [y, m, d] = from.split("-").map(Number);
+    const until = toISO(new Date(y, m - 1, d + 6));
+    const byDay = new Map<string, typeof events>();
+    for (const e of events) if (e.date >= from && e.date <= until) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
+    const list = [...byDay.entries()];
+    if (isPast) return null;
+    return (
+      <div className="card p-4">
+        <h3 className="mb-1 font-display text-sm font-semibold">{tr("Next 7 days")}</h3>
+        {list.length === 0 ? (
+          <p className="faint text-xs">{tr("Nothing planned these days.")}</p>
+        ) : (
+          list.map(([iso, evs]) => {
+            const net = evs.reduce((a, e) => a + e.amount, 0);
+            const bal = balances.get(iso);
+            return (
+              <div key={iso} className="grid grid-cols-[3.2rem_1fr_auto] gap-2 border-t py-2 text-sm first:border-t-0" style={{ borderColor: "var(--border)" }}>
+                <span className="faint text-xs font-semibold">{iso === today ? tr("Today") : shortDate(iso)}</span>
+                <span className="min-w-0">
+                  <span className="block truncate">{evs.map((e) => e.title).join(" · ")}</span>
+                  {bal != null && bal < LOW && (
+                    <span className="block text-[11px]" style={{ color: bal < 0 ? "var(--over)" : "var(--warn)" }}>
+                      {bal < 0 ? tr("short {amt}", { amt: money(-bal) }) : tr("you'd have {amt}", { amt: money(bal) })}
+                    </span>
+                  )}
+                </span>
+                <span className="tabnum" style={{ color: net < 0 ? "var(--over)" : "var(--mint)" }}>
+                  {net < 0 ? "−" : "+"}
+                  {money(Math.abs(net))}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  }
+
+  function EmployerBlock({ g }: { g: Category & { children: Category[] } }) {
+    const members = [g as Category, ...g.children];
+    const rows = members.flatMap((c) => (plannedByCat.get(c.id) ?? []).map((p) => ({ c, p })));
+    const shown = new Set(rows.map((r) => r.p.item.id));
+    const loose = members.flatMap((c) => (txByCat.get(c.id) ?? []).filter((t) => !t.recurring_item_id || !shown.has(t.recurring_item_id)).map((t) => ({ c, t })));
+    const done = members.reduce((a, c) => a + spentIn(c.id), 0);
+    const plan = members.reduce((a, c) => a + planFor(c.id), 0);
+    const dedGroup = (key: string, label: string) => {
+      if (!key.startsWith("other:")) return "taxes";
+      const l = label.toLowerCase();
+      if (/loan|pr[ée]stamo/.test(l)) return "loans";
+      if (/rent|renta|basura|trash|housing|casa/.test(l)) return "housing";
+      if (/401|dental|visi|vision|hsa|fsa|seguro|insurance|life|vida|medical|m[ée]dico|benefit/.test(l)) return "benefits";
+      return "other";
+    };
+    const names: Record<string, string> = { taxes: tr("Taxes"), benefits: tr("Benefits"), loans: tr("Loans"), housing: tr("Rent & housing"), other: tr("Other") };
+    return (
+      <Group id={g.id} name={`${tr("Employer")} · ${g.name}`} done={done} plan={plan} tone="in" onAdd={() => setPlanSheet({ item: null, kind: "income", catId: g.id })}>
+        {rows.map(({ c, p }) => {
+          const t = p.item.taxes;
+          const taxed = !!(t && t.gross > 0);
+          const n = taxed ? Math.max(1, Math.round(p.total / p.item.amount)) : 0;
+          const parts = taxed ? taxParts(t) : [];
+          const grp = new Map<string, number>();
+          for (const x of parts) grp.set(dedGroup(x.key, x.label), (grp.get(dedGroup(x.key, x.label)) ?? 0) + x.amount * n);
+          const dedTotal = [...grp.values()].reduce((a, b) => a + b, 0);
+          const gross = taxed ? t!.gross * n : 0;
+          const open = payOpen.has(`ded-${p.item.id}`);
+          return (
+            <div key={p.item.id}>
+              <PlanItemRow item={p.item} planTotal={p.total} catId={c.id} kind="income" />
+              {taxed && (
+                <div className="-mt-1 pb-2 pl-5 text-xs">
+                  <button
+                    className="faint hover:underline"
+                    onClick={() =>
+                      setPayOpen((st) => {
+                        const nx = new Set(st);
+                        const k = `ded-${p.item.id}`;
+                        if (nx.has(k)) nx.delete(k);
+                        else nx.add(k);
+                        return nx;
+                      })
+                    }
+                  >
+                    {tr("Gross {g} · deductions −{d} ({p}%)", { g: money(gross), d: money(dedTotal), p: gross ? Math.round((dedTotal / gross) * 100) : 0 })} {open ? "▴" : "▾"}
+                  </button>
+                  {open && (
+                    <div className="mt-1.5 grid gap-1 rounded-lg p-2.5" style={{ background: "var(--surface-2)" }}>
+                      {["taxes", "benefits", "loans", "housing", "other"].filter((k) => grp.has(k)).map((k) => (
+                        <div key={k} className="flex justify-between">
+                          <span className="muted">
+                            {names[k]} <span className="faint">{((grp.get(k)! / gross) * 100).toFixed(1)}%</span>
+                          </span>
+                          <span style={{ color: "var(--over)" }}>−{money(grp.get(k)!)}</span>
+                        </div>
+                      ))}
+                      <button className="mt-1 justify-self-start font-semibold" style={{ color: "var(--mint)" }} onClick={() => setEmpSheet(g.id)}>
+                        {tr("See every line / edit deductions")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {loose.map(({ c, t }) => (
+          <MoneyRow key={t.id} name={t.note || c.name} subtitle={<>✓ {shortDate(t.tx_date)}{t.source === "plaid" && ` · ${tr("bank")}`}</>} done={t.amount} tone="in" onOpen={() => editTx(t)} onDelete={() => deleteTx(t.id)} />
+        ))}
+      </Group>
+    );
   }
 
   function CashRow() {
@@ -1291,6 +1528,74 @@ export default function MonthPage() {
             <span className="faint text-xs"> ✎</span>
           </button>
         )}
+      </div>
+    );
+  }
+
+  function CashHero() {
+    const [edit, setEdit] = useState(false);
+    const [val, setVal] = useState(cashInHandNow ? String(cashInHandNow) : "");
+    const lastDayLabel = (() => {
+      const [y, m] = month.split("-").map(Number);
+      return shortDate(toISO(new Date(y, m, 0)));
+    })();
+    const Tile = ({ label, now, plan, color }: { label: string; now: number; plan: number; color: string }) => (
+      <div className="card p-4">
+        <p className="faint text-xs font-semibold">{label}</p>
+        <p className="font-display text-2xl font-semibold tabnum" style={{ color }}>
+          {money(now)}
+        </p>
+        <p className="faint text-xs">{tr("of {amt} planned", { amt: money(plan) })}</p>
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
+          <div className="h-full rounded-full" style={{ width: `${plan > 0 ? Math.min(100, (now / plan) * 100) : 0}%`, background: color }} />
+        </div>
+      </div>
+    );
+    return (
+      <div className="grid gap-4">
+        <div className="px-1">
+          <p className="faint text-xs font-semibold uppercase tracking-wide">{month === curMonth ? "Cash" : tr("Cash today")}</p>
+          <p className="num-hero" style={{ color: cashNow < 0 ? "var(--over)" : undefined }}>
+            {cashNow < 0 ? "−" : ""}
+            {money(Math.abs(cashNow))}
+          </p>
+          <p className="muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            {hasBanks && <span>{tr("Banks {amt}", { amt: money(bankCash) })} ·</span>}
+            {edit ? (
+              <span className="inline-flex items-center gap-1.5">
+                {tr("Cash in hand")}
+                <span className="relative">
+                  <span className="faint pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm">$</span>
+                  <input className="input !w-24 !py-0.5 !pl-5 !pr-2 text-sm" type="number" step="0.01" min="0" inputMode="decimal" autoFocus value={val}
+                    onChange={(e) => setVal(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { saveCash(parseFloat(val) || 0, curMonth); setEdit(false); } if (e.key === "Escape") setEdit(false); }} />
+                </span>
+                <button className="btn btn-primary !px-2.5 !py-0.5 !text-xs" onClick={() => { saveCash(parseFloat(val) || 0, curMonth); setEdit(false); }}>{tr("Save")}</button>
+                <button className="faint px-1" onClick={() => setEdit(false)} aria-label={tr("Cancel")}>×</button>
+              </span>
+            ) : (
+              <button className="hover:underline" onClick={() => setEdit(true)}>
+                {tr("Cash in hand {amt}", { amt: money(Number(cashInHandNow) || 0) })} <span className="faint text-xs">✎</span>
+              </button>
+            )}
+            {endOfMonth !== null && (
+              <span>
+                · {tr("On {d} you'd have", { d: lastDayLabel })}{" "}
+                <b style={{ color: endOfMonth < 0 ? "var(--over)" : "var(--mint)" }}>
+                  {endOfMonth < 0 ? "−" : ""}
+                  {money(Math.abs(endOfMonth))}
+                </b>
+              </span>
+            )}
+          </p>
+          {!hasBanks && cashInHandNow === 0 && (
+            <p className="faint mt-1 text-xs">{tr("Connect your bank or type the cash you have, so the calendar knows where you start.")}</p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Tile label={tr("Money in")} now={incomeTotal} plan={planIncome} color="var(--mint)" />
+          <Tile label={tr("Money out")} now={expenseTotal} plan={planExpense} color="var(--over)" />
+        </div>
       </div>
     );
   }
@@ -1429,7 +1734,7 @@ export default function MonthPage() {
           <span className="muted text-sm font-medium"> / {money(plan)}</span>
         </span>
       </div>
-      {parts.length > 1 && (
+      {false && parts.length > 1 && (
         <div className="faint mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
           {parts.map((x) => (
             <span key={x.k}>
@@ -1492,8 +1797,13 @@ export default function MonthPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <div className="grid gap-4 lg:col-span-2">
-            {/* ---- Your month at a glance: In · Out · Left ---- */}
-            <MonthGlance />
+            {/* ---- CASH, then In / Out ---- */}
+            <CashHero />
+            {/* phones: the calendar right after cash (desktop shows it in the side rail) */}
+            <div className="grid gap-4 lg:hidden">
+              <MonthCalendar />
+              <NextDays />
+            </div>
             {isFuture && (
               <p className="faint -mt-2 text-xs">
                 {tr("Future month — left side is what's logged, right side is the plan.")}
@@ -1543,51 +1853,10 @@ export default function MonthPage() {
 
             {/* ======== MONEY IN ======== */}
             <FlowHeader dir="in" />
-            <div className="card px-5 py-1">
-              {employerGroups.map((g) => {
-                const ids = [g.id, ...g.children.map((c) => c.id)];
-                const idSet = new Set(ids);
-                let gross = 0;
-                let ded = 0;
-                let checks = 0;
-                let payItem: RecurringItem | null = null;
-                for (const it of recurring) {
-                  if (!it.active || it.kind !== "income" || !idSet.has(it.category_id ?? "")) continue;
-                  const n = occurrencesInMonth(it.frequency, it.start_date, it.end_date, month, it.schedule);
-                  if (!n) continue;
-                  const g1 = it.taxes && it.taxes.gross > 0 ? it.taxes.gross : it.amount;
-                  gross += g1 * n;
-                  ded += (it.taxes && it.taxes.gross > 0 ? taxTotal(it.taxes) : 0) * n;
-                  if (it.taxes && it.taxes.gross > 0) checks += n;
-                  if (!payItem || it.amount > payItem.amount) payItem = it;
-                }
-                const received = ids.reduce((a, id) => a + spentIn(id), 0);
-                const planNet = ids.reduce((a, id) => a + planFor(id), 0);
-                const pi = payItem as RecurringItem | null;
-                return (
-                  <MoneyRow
-                    key={g.id}
-                    name={g.name}
-                    bold
-                    subtitle={
-                      gross > 0 ? (
-                        <>
-                          {tr("Gross {g} · deductions −{d} ({p}%)", { g: money(gross), d: money(ded), p: gross ? Math.round((ded / gross) * 100) : 0 })}
-                          {checks > 0 && ` · ${tr("{n} payments", { n: checks })}`} · <u>{tr("see breakdown")}</u>
-                        </>
-                      ) : (
-                        tr("No pay planned this month.")
-                      )
-                    }
-                    done={received}
-                    plan={planNet}
-                    tone="in"
-                    onOpen={() => setEmpSheet(g.id)}
-                    onPay={pi && !isFuture ? (amount) => quickAddTx("income", pi.category_id ?? g.id, amount, pi.title, "none", todayISO(), pi.id) : undefined}
-                    payLabel={tr("Add to {v0}", { v0: g.name })}
-                  />
-                );
-              })}
+            <div className="grid gap-3">
+              {employerGroups.map((g) => (
+                <EmployerBlock key={g.id} g={g} />
+              ))}
               {(() => {
                 const t = buildCategoryTree(cats, "income");
                 const list = [...t.groups, ...t.standalone].filter((c) => !employerIds.has(c.id));
@@ -1596,6 +1865,8 @@ export default function MonthPage() {
               {(txByCat.get(uncatId("income")) ?? []).length > 0 && (
                 <CategoryGroup cat={{ id: uncatId("income"), name: tr("Uncategorized"), icon: "🗂️", kind: "income", parent_id: null }} kind="income" />
               )}
+              {invs.some((iv) => iv.monthly_kind === "withdraw" && iv.monthly_amount > 0) && (
+              <Group id="g-inv-in" name={tr("Investments")} pill={tr("taking out this month")} done={invWithdrawTotal} plan={invPlanWithdraw} tone="in">
               {invs.filter((iv) => iv.monthly_kind === "withdraw" && iv.monthly_amount > 0).map((iv) => (
                 <MoneyRow
                   key={iv.id}
@@ -1612,8 +1883,9 @@ export default function MonthPage() {
                   payLabel={tr("withdrawal from {v0}", { v0: iv.name })}
                 />
               ))}
-              <CashRow />
-              <div className="border-t border-dashed py-2" style={{ borderColor: "var(--border)" }}>
+              </Group>
+              )}
+              <div className="px-1 py-1">
                 {addMenu === "in" ? (
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setPlanSheet({ item: null, kind: "income", catId: null }); }}>{tr("Income")}</button>
@@ -1632,7 +1904,7 @@ export default function MonthPage() {
             {/* ======== MONEY OUT ======== */}
             <FlowHeader dir="out" />
             <p className="faint -mt-2 text-xs">{tr("Every total here is this month: paid / plan. What you owe in total is on each line.")}</p>
-            <div className="card px-5 py-1">
+            <div className="grid gap-3">
               {(() => {
                 const t = buildCategoryTree(cats, "expense");
                 return [...t.groups, ...t.standalone].map((c) => <CategoryGroup key={c.id} cat={c} kind="expense" />);
@@ -1775,7 +2047,7 @@ export default function MonthPage() {
                 </Group>
               )}
 
-              <div className="border-t border-dashed py-2" style={{ borderColor: "var(--border)" }}>
+              <div className="px-1 py-1">
                 {addMenu === "out" ? (
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <button className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => { setAddMenu(null); setPlanSheet({ item: null, kind: "expense", catId: null }); }}>{tr("Expense")}</button>
@@ -1814,268 +2086,16 @@ export default function MonthPage() {
             </p>
           </div>
 
-          {/* Side rail */}
-          <div className="grid gap-4">
-            {redMonths.length > 0 && (
-              <div
-                className="card p-5"
-                style={{ borderColor: "var(--over)" }}
-              >
-                <p
-                  className="text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: "var(--over)" }}
-                >
-                  {tr("Heads up — red months ahead")}
-                </p>
-                <div className="mt-2 grid gap-1.5 text-sm">
-                  {redMonths.map((p) => (
-                    <div key={p.month} className="flex justify-between">
-                      <span className="muted">{monthLabel(p.month)}</span>
-                      <span style={{ color: "var(--over)" }}>
-                        −{money(Math.abs(p.net))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <Link
-                  href="/app/forecast"
-                  className="faint mt-2 inline-block text-xs underline underline-offset-4"
-                >
-                  {tr("See the full forecast →")}
-                </Link>
-              </div>
-            )}
-
-            {(totalInvested > 0 || totalDebt > 0 || net !== 0) && (
-              <div className="card p-5">
-                <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  {tr("Net worth")}
-{monthsAhead > 0 ? tr(" by {v0}", { v0: monthLabel(month) }) : ""}
-                </p>
-                <p
-                  className={`font-display text-2xl font-semibold ${
-                    netWorthShown >= 0 ? "glow-mint" : "glow-over"
-                  }`}
-                  style={{
-                    color: netWorthShown >= 0 ? "var(--mint)" : "var(--over)",
-                  }}
-                >
-                  {netWorthShown >= 0 ? "" : "−"}
-                  {money(Math.abs(netWorthShown))}
-                </p>
-                <div className="mt-2 grid gap-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="muted">{tr("Invested")}</span>
-                    <span>{money(totalInvested)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="muted">{tr("Debt")}</span>
-                    <span style={{ color: "var(--over)" }}>
-                      −{money(totalDebt)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="muted">
-                      {monthsAhead > 0
-                        ? tr("Plan through {v0}", { v0: monthLabel(month) })
-                        : tr("Net this month")}
-                    </span>
-                    <span
-                      style={{
-                        color:
-                          netWorthShown - netWorth >= 0
-                            ? "var(--mint)"
-                            : "var(--over)",
-                      }}
-                    >
-                      {netWorthShown - netWorth >= 0 ? "+" : "−"}
-                      {money(Math.abs(netWorthShown - netWorth))}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {runway && (
-              <div className="card p-5">
-                <p className="faint text-xs font-semibold uppercase tracking-wide">
-                  {tr("Safe to spend")}
-                </p>
-                <p
-                  className={`font-display text-3xl font-semibold ${
-                    runway.covered ? "glow-mint" : "glow-over"
-                  }`}
-                  style={{
-                    color: runway.covered ? "var(--mint)" : "var(--over)",
-                  }}
-                >
-                  {runway.covered ? "" : "−"}
-                  {money(
-                    Math.abs(runway.onHand - runway.dueSum - runway.everyday)
-                  )}
-                </p>
-                <p className="muted mt-1 text-sm">
-                  {tr("before your next paycheck,")}{" "}
-{shortDate(runway.nextCheck)}
-                </p>
-                {!runway.covered && (
-                  <p className="mt-1 text-sm" style={{ color: "var(--over)" }}>
-                    ~{money(runway.short)} short this stretch
-                  </p>
-                )}
-
-                <button
-                  className="faint mt-3 text-xs hover:underline"
-                  onClick={() => toggleBox("runway")}
-                >
-                  {openBoxes.has("runway") ? tr("Hide the math ▴") : tr("How's this figured? ▾")}
-                </button>
-                {openBoxes.has("runway") && (
-                  <div className="divider mt-2 grid gap-1 pt-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="muted">{tr("Cash on hand")}</span>
-                      <span>{money(runway.onHand)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="muted">{tr("Bills coming")}</span>
-                      <span>−{money(runway.dueSum)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="muted">{tr("Everyday spending (est.)")}</span>
-                      <span>−{money(runway.everyday)}</span>
-                    </div>
-                    {!runway.covered && runway.pushable.length > 0 && (
-                      <div className="divider mt-1 pt-1.5">
-                        <p className="faint mb-1 text-xs">{tr("Could push:")}</p>
-                        {runway.pushable.map((b) => (
-                          <div key={b.key} className="flex justify-between">
-                            <span className="muted truncate">{b.title}</span>
-                            <span className="faint shrink-0">
-                              {money(b.amount)} · {shortDate(b.date)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(pendingTasks.length > 0 || upcoming.length > 0) && (
-              <div className="card p-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display font-semibold">{tr("Up next")}</h2>
-                  <Link href="/app/tasks" className="faint text-sm">
-                    {tr("All →")}
-                  </Link>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {upcoming.map((u) => (
-                    <div
-                      key={u.key}
-                      className="card-soft flex items-center gap-3 p-3"
-                    >
-                      <ConfirmPay
-                        amount={u.amount}
-                        label={tr("Mark {v0} paid", { v0: u.title })}
-                        onConfirm={async (amount) => {
-                          if (u.type === "debt" && u.debtId)
-                            await quickPayDebt(u.debtId, amount);
-                          else
-                            await quickAddTx(
-                              "expense",
-                              u.categoryId ?? "uncategorized",
-                              amount,
-                              u.title,
-                              "none",
-                              todayISO(),
-                              u.itemId ?? null
-                            );
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {u.title}
-                        </p>
-                        <p className="faint text-xs">
-                          {money(u.amount)} ·{" "}
-                          {u.date === todayISO()
-                            ? "today"
-                            : shortDate(u.date)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingTasks.map((t) => (
-                    <div
-                      key={t.id}
-                      className="card-soft flex items-center gap-3 p-3"
-                    >
-                      <button
-                        onClick={() => completeTask(t.id)}
-                        aria-label={tr("Complete {v0}", { v0: t.title })}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2"
-                        style={{ borderColor: "var(--mint)" }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {t.title}
-                        </p>
-                        <p className="faint text-xs">
-                          {t.amount != null && `${money(t.amount)} · `}
-                          {t.due_date
-                            ? t.due_date < todayISO()
-                              ? tr("overdue — {v0}", { v0: shortDate(t.due_date) })
-                              : shortDate(t.due_date)
-                            : "no date"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(debts.some((d) => d.payment_due_day) ||
-              accts.some((a) => a.payment_due_day || a.statement_close_day)) && (
-              <div className="card p-5">
-                <h2 className="font-display font-semibold">{tr("Money dates")}</h2>
-                <div className="mt-2 grid gap-1.5">
-                  {debts
-                    .filter((d) => d.payment_due_day || d.statement_close_day)
-                    .map((d) => (
-                      <div key={d.id} className="text-sm">
-                        <p className="font-medium">{d.name}</p>
-                        <p className="faint text-xs">
-                          {d.statement_close_day &&
-                            tr("Statement closes day {v0}", { v0: d.statement_close_day })}
-                          {d.statement_close_day && d.payment_due_day && " · "}
-                          {d.payment_due_day &&
-                            tr("Payment due day {v0}", { v0: d.payment_due_day })}
-                        </p>
-                      </div>
-                    ))}
-                  {accts
-                    .filter(
-                      (a) => a.payment_due_day || a.statement_close_day
-                    )
-                    .map((a) => (
-                      <div key={a.id} className="text-sm">
-                        <p className="font-medium">{a.name}</p>
-                        <p className="faint text-xs">
-                          {a.statement_close_day &&
-                            tr("Statement closes day {v0}", { v0: a.statement_close_day })}
-                          {a.statement_close_day && a.payment_due_day && " · "}
-                          {a.payment_due_day &&
-                            tr("Payment due day {v0}", { v0: a.payment_due_day })}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
+          {/* Side rail: only the month in time */}
+          <div className="hidden gap-4 lg:sticky lg:top-6 lg:grid">
+            <Link href="/app/ai" className="card flex items-center gap-3 px-4 py-3 text-sm hover:opacity-90">
+              <span className="faint flex-1">{tr("Ask Montfort AI…")}</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "var(--text)", color: "var(--surface)" }}>
+                {tr("Open")}
+              </span>
+            </Link>
+            <MonthCalendar />
+            <NextDays />
           </div>
         </div>
       )}

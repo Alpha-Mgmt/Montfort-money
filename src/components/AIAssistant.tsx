@@ -22,9 +22,10 @@ const toneColor: Record<string, string> = {
 };
 
 const EXAMPLES = [
-  "How much have I spent on Cars this year?",
+  "How much have I spent on food this month?",
   "Can I afford $500 more this month?",
   "Which bills are coming before my next paycheck?",
+  "Add a $120 car registration in November",
 ];
 
 function Sparkle({ size = 16 }: { size?: number }) {
@@ -54,9 +55,9 @@ function Spinner() {
 
 /** Floating Montfort AI assistant: fixed to the viewport, follows scroll,
  *  opens into a chat panel, minimizes back to a pill. */
-export function AIAssistant({ month }: { month: string }) {
+export function AIAssistant({ month, full = false }: { month: string; full?: boolean }) {
   const { lang, space } = useApp();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(full);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -229,12 +230,12 @@ export function AIAssistant({ month }: { month: string }) {
   }
 
   // ---- collapsed pill ----
-  if (!open) {
+  if (!open && !full) {
     return (
       <button
         onClick={() => setOpen(true)}
         aria-label={tr("Open Montfort AI")}
-        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg lg:bottom-6 lg:right-6"
+        className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg lg:flex"
         style={{
           background: "linear-gradient(120deg, #2bd396, #25c2b0)",
           color: "#06130d",
@@ -250,8 +251,12 @@ export function AIAssistant({ month }: { month: string }) {
   // ---- open panel ----
   return (
     <div
-      className="card fixed bottom-20 right-4 z-40 flex w-[min(92vw,380px)] flex-col overflow-hidden lg:bottom-6 lg:right-6"
-      style={{ maxHeight: "min(72vh, 560px)" }}
+      className={
+        full
+          ? "card flex w-full flex-col overflow-hidden"
+          : "card fixed bottom-20 right-4 z-40 flex w-[min(92vw,380px)] flex-col overflow-hidden lg:bottom-6 lg:right-6"
+      }
+      style={full ? { height: "calc(100dvh - 9rem)" } : { maxHeight: "min(72vh, 560px)" }}
     >
       {/* header */}
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
@@ -273,14 +278,14 @@ export function AIAssistant({ month }: { month: string }) {
               {tr("Clear")}
             </button>
           )}
-          <button
+          {!full && <button
             aria-label={tr("Minimize")}
             className="faint grid h-7 w-7 place-items-center rounded-full text-lg"
             onClick={() => setOpen(false)}
             style={{ background: "var(--surface-2)" }}
           >
             –
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -308,7 +313,7 @@ export function AIAssistant({ month }: { month: string }) {
                   disabled={busy}
                   className="card-soft px-3 py-2 text-left text-sm hover:opacity-80"
                 >
-                  {ex}
+                  {tr(ex)}
                 </button>
               ))}
             </div>

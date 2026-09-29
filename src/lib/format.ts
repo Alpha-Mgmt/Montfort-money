@@ -8,7 +8,9 @@ export function money(n: number, currency = "USD"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
-    maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2,
+    // whole amounts read cleaner without ".00"; big amounts drop cents entirely
+    minimumFractionDigits: Math.abs(n) >= 1000 || Math.round(n * 100) % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: Math.abs(n) >= 1000 || Math.round(n * 100) % 100 === 0 ? 0 : 2,
   }).format(n);
 }
 

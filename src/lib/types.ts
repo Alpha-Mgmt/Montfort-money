@@ -9,6 +9,8 @@ export type Account = {
   archived: boolean;
   payment_due_day: number | null;
   statement_close_day: number | null;
+  /** latest balance from the bank (Plaid) — null for manual accounts */
+  current_balance?: number | null;
 };
 
 export type Category = {

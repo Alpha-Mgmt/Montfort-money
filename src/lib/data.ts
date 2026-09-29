@@ -65,7 +65,7 @@ export async function fetchAccounts(): Promise<Account[]> {
   const { data } = await supabase
     .from("accounts")
     .select(
-      "id,name,type,source,currency,archived,payment_due_day,statement_close_day"
+      "*"
     )
     .eq("archived", false)
     .order("created_at");
@@ -73,6 +73,7 @@ export async function fetchAccounts(): Promise<Account[]> {
     payment_due_day: null,
     statement_close_day: null,
     ...a,
+    current_balance: a.current_balance == null ? null : Number(a.current_balance),
   })) as Account[];
 }
 

@@ -304,7 +304,7 @@ export default function SettingsPage() {
         </div>
         {isOwner && (
           <>
-            <p className="faint mt-4 text-xs font-semibold uppercase tracking-wide">Dueño</p>
+            <p className="faint mt-4 text-xs font-semibold uppercase tracking-wide">{tr("Owner")}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {ownerItems.map((n) => (
                 <Link
@@ -315,7 +315,7 @@ export default function SettingsPage() {
                   <span className="h-5 w-5 shrink-0 [&>svg]:h-full [&>svg]:w-full" style={{ color: "var(--mint)" }}>
                     {n.icon}
                   </span>
-                  {n.label}
+                  {tr(n.label)}
                 </Link>
               ))}
             </div>

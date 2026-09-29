@@ -552,3 +552,88 @@ html.theme-light .text-grad {
 /* Futuro chart — validated categorical trio (cash / investments / debt) */
 :root { --fut-cash: #1aa476; --fut-inv: #7f76e6; --fut-debt: #c57a30; }
 html.theme-light { --fut-cash: #16a88c; --fut-inv: #6c63d9; --fut-debt: #d9822b; }
+
+/* ======================================================================
+   2026-09 refresh — "clean": flat light-grey canvas, white blocks with no
+   borders, tiny shadow, calm sidebar. Wins over the earlier light rules.
+   ====================================================================== */
+html.theme-light {
+  --bg: #f6f7f9;
+  --bg-soft: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --border: #eceef2;
+  --text: #0f1419;
+  --text-soft: #4b5563;
+  --text-faint: #8b95a3;
+  --mint: #0f9d6e;
+  --mint-strong: #0b7f59;
+  --mint-soft: #e7f6ef;
+  --over: #e5484d;
+  --over-soft: #fdecec;
+  --warn: #d98a1c;
+  --warn-soft: #fdf3e2;
+  --grad-from: #0f9d6e;
+  --grad-to: #2f7fd6;
+}
+html.theme-light body {
+  background: var(--bg);
+}
+html.theme-light body::before {
+  display: none;
+}
+html.theme-light .card {
+  background: #ffffff;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 1px rgba(16, 24, 40, 0.02);
+}
+html.theme-light .card-soft {
+  background: var(--surface-2);
+  border: 0;
+  border-radius: 12px;
+}
+html.theme-light .sidebar {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-right: 1px solid var(--border);
+}
+html.theme-light .sidebar nav a {
+  font-weight: 500;
+  color: var(--text-soft);
+}
+html.theme-light .sidebar nav a:hover {
+  background: rgba(15, 20, 25, 0.04);
+}
+html.theme-light .sidebar nav a.active {
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+html.theme-light .sidebar nav a.active svg {
+  color: var(--mint);
+}
+html.theme-light .tabbar {
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid var(--border);
+}
+html.theme-light .btn-primary {
+  background: #0f1419;
+  box-shadow: none;
+}
+html.theme-light .input {
+  border-color: #e3e6eb;
+}
+/* big, calm numbers */
+.num-hero {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(2.5rem, 6vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.tabnum {
+  font-variant-numeric: tabular-nums;
+}

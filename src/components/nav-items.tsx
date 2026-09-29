@@ -1,11 +1,21 @@
 export const navItems = [
   {
     href: "/app",
-    label: "Home",
+    label: "Month",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 11 12 3l9 8" />
         <path d="M5 10v10h14V10" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/ai",
+    label: "Montfort AI",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" />
+        <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
       </svg>
     ),
   },
@@ -135,7 +145,7 @@ export const toolItems = [
 export const ownerItems = [
   {
     href: "/app/pamm",
-    label: "Cuentas PAMM",
+    label: "PAMM accounts",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 3v18h18" />
@@ -146,7 +156,7 @@ export const ownerItems = [
   },
   {
     href: "/app/admin",
-    label: "Panel del dueño",
+    label: "Owner panel",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="9" cy="8" r="3.5" />

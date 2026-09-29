@@ -22,7 +22,7 @@ export function Sidebar() {
         <SpaceSwitcher compact />
       </div>
       <nav>
-        {navItems.map((n) => (
+        {navItems.filter((n) => n.href !== "/app/settings").map((n) => (
           <Link
             key={n.href}
             href={n.href}
@@ -53,13 +53,21 @@ export function Sidebar() {
             {ownerItems.map((n) => (
               <Link key={n.href} href={n.href} className={isActive(n.href, pathname) ? "active" : ""}>
                 {n.icon}
-                {n.label}
+                {t(n.label)}
               </Link>
             ))}
           </>
         )}
       </nav>
-      <div className="mt-auto flex items-center justify-between gap-2">
+      <nav className="!mt-auto pt-4">
+        {navItems.filter((n) => n.href === "/app/settings").map((n) => (
+          <Link key={n.href} href={n.href} className={isActive(n.href, pathname) ? "active" : ""}>
+            {n.icon}
+            {t(n.label)}
+          </Link>
+        ))}
+      </nav>
+      <div className="mt-3 flex items-center justify-between gap-2">
         <LangToggle />
         <ThemeToggle />
       </div>
