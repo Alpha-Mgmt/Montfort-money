@@ -901,4 +901,7 @@ export const es: Record<string, string> = {
   "{amt} paid": "{amt} pagado",
   "plan {amt}": "plan {amt}",
   "Back to {amt}": "Regresar a {amt}",
+  "Cash in hand": "Efectivo en mano",
+  "Not income — it's money you already have. It adds to what's left this month.": "No es ingreso — es dinero que ya tienes. Suma a lo que te queda este mes.",
+  "+ Add cash": "+ Agregar efectivo",
 };

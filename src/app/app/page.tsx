@@ -93,6 +93,7 @@ export default function MonthPage() {
   const router = useRouter();
   const [month, setMonth] = useState(monthStartISO());
   const [name, setName] = useState("");
+  const [cashMap, setCashMap] = useState<Record<string, number>>({});
   const [cats, setCats] = useState<Category[]>([]);
   const [accts, setAccts] = useState<Account[]>([]);
   const [txs, setTxs] = useState<Transaction[]>([]);
@@ -148,7 +149,7 @@ export default function MonthPage() {
     const [{ data: profile }, c, a, t, r, k, d, iv, gl, pl] = await Promise.all([
       supabase
         .from("profiles")
-        .select("full_name,show_debts,show_investments,onboarded")
+        .select("full_name,show_debts,show_investments,onboarded,cash_on_hand")
         .single(),
       fetchCategories(),
       fetchAccounts(),
@@ -166,6 +167,7 @@ export default function MonthPage() {
       return;
     }
     setName((profile?.full_name ?? "").split(" ")[0] ?? "");
+    setCashMap(((profile as { cash_on_hand?: Record<string, number> } | null)?.cash_on_hand) ?? {});
     setShowDebts(profile?.show_debts ?? true);
     setShowInvs(profile?.show_investments ?? true);
     setCats(c);
@@ -424,7 +426,9 @@ export default function MonthPage() {
   }
   const incomeTotal = kindTotal("income");
   const expenseTotal = kindTotal("expense");
-  const net = incomeTotal - expenseTotal;
+  // cash in hand isn't income, but it's money you have this month
+  const cashHere = Number(cashMap[month.slice(0, 7)] ?? 0);
+  const net = incomeTotal - expenseTotal + cashHere;
 
   const pendingTasks = tasks.filter((t) => t.status === "pending").slice(0, 4);
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
@@ -528,6 +532,7 @@ export default function MonthPage() {
   // everything that leaves: spending + debts + goals + investment deposits
   const planExpense = planExpenseCats + debtOnlyPlan + planGoals + invPlanDeposit;
   const planSpending = Math.max(0, planExpenseCats - debtItemPlan);
+  const plannedLeft = planIncome - planExpense + cashHere;
   const netWorthShown =
     totalInvested -
     totalDebt +
@@ -1472,6 +1477,76 @@ export default function MonthPage() {
     );
   }
 
+  async function saveCash(amount: number | null) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const next = { ...cashMap };
+    const key = month.slice(0, 7);
+    if (amount && amount > 0) next[key] = Math.round(amount * 100) / 100;
+    else delete next[key];
+    setCashMap(next);
+    await supabase.from("profiles").update({ cash_on_hand: Object.keys(next).length ? next : null }).eq("id", user.id);
+  }
+
+  function CashCard() {
+    const [edit, setEdit] = useState(false);
+    const [val, setVal] = useState(cashHere ? String(cashHere) : "");
+    return (
+      <div className="card flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+        <div>
+          <p className="flex items-center gap-2 font-semibold">
+            <span aria-hidden>💵</span> {tr("Cash in hand")}
+          </p>
+          <p className="faint text-xs">{tr("Not income — it's money you already have. It adds to what's left this month.")}</p>
+        </div>
+        {edit ? (
+          <span className="flex items-center gap-1.5">
+            <span className="relative">
+              <span className="faint pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm">$</span>
+              <input
+                className="input !w-28 !py-1 !pl-5 !pr-2 text-sm"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                autoFocus
+                value={val}
+                onChange={(e) => setVal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    saveCash(parseFloat(val) || 0);
+                    setEdit(false);
+                  }
+                  if (e.key === "Escape") setEdit(false);
+                }}
+              />
+            </span>
+            <button
+              className="btn btn-primary !px-2.5 !py-1 !text-xs"
+              onClick={() => {
+                saveCash(parseFloat(val) || 0);
+                setEdit(false);
+              }}
+            >
+              {tr("Save")}
+            </button>
+            <button className="faint px-1 text-sm" onClick={() => setEdit(false)} aria-label={tr("Cancel")}>
+              ×
+            </button>
+          </span>
+        ) : (
+          <button className="font-display font-semibold hover:underline" onClick={() => setEdit(true)}>
+            {cashHere > 0 ? money(cashHere) : <span className="faint text-sm font-normal">{tr("+ Add cash")}</span>}
+            {cashHere > 0 && <span className="faint text-xs font-normal"> ✎</span>}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   function FlowHeader({ dir }: { dir: "in" | "out" }) {
     const actual = dir === "in" ? incomeTotal : expenseTotal;
     const plan = dir === "in" ? planIncome : planExpense;
@@ -1734,10 +1809,10 @@ export default function MonthPage() {
                   {net >= 0 ? "" : "−"}
                   {money(Math.abs(net))}
                 </p>
-                {planIncome - planExpense !== 0 && (
+                {plannedLeft !== 0 && (
                   <p className="faint text-xs">
-                    {planIncome - planExpense >= 0 ? "+" : "−"}
-                    {tr("{amt} planned", { amt: money(Math.abs(planIncome - planExpense)) })}
+                    {plannedLeft >= 0 ? "+" : "−"}
+                    {tr("{amt} planned", { amt: money(Math.abs(plannedLeft)) })}
                   </p>
                 )}
                 <button
@@ -1760,13 +1835,13 @@ export default function MonthPage() {
                       <span
                         style={{
                           color:
-                            planIncome - planExpense >= 0
+                            plannedLeft >= 0
                               ? "var(--mint)"
                               : "var(--over)",
                         }}
                       >
-                        {planIncome - planExpense >= 0 ? "+" : "−"}
-                        {money(Math.abs(planIncome - planExpense))}
+                        {plannedLeft >= 0 ? "+" : "−"}
+                        {money(Math.abs(plannedLeft))}
                       </span>
                     </div>
                     {goalsPlanMonthly > 0 && (
@@ -1830,6 +1905,7 @@ export default function MonthPage() {
 
             {/* ======== MONEY IN ======== */}
             <FlowHeader dir="in" />
+            <CashCard />
             {employerGroups.map((g) => (
               <EmployerCard key={g.id} g={g} />
             ))}

@@ -12,7 +12,7 @@ import { LoginActivity } from "@/components/LoginActivity";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { InstallApp } from "@/components/InstallApp";
 import { SpaceSwitcher, LangToggle } from "@/components/SpaceSwitcher";
-import { visibleTools } from "@/components/nav-items";
+import { ownerItems, visibleTools } from "@/components/nav-items";
 import { useApp } from "@/lib/i18n";
 import type { Account, Category, Kind } from "@/lib/types";
 import { tr } from "@/lib/i18n";
@@ -302,6 +302,25 @@ export default function SettingsPage() {
             </Link>
           ))}
         </div>
+        {isOwner && (
+          <>
+            <p className="faint mt-4 text-xs font-semibold uppercase tracking-wide">Dueño</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {ownerItems.map((n) => (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className="card-soft flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-medium"
+                >
+                  <span className="h-5 w-5 shrink-0 [&>svg]:h-full [&>svg]:w-full" style={{ color: "var(--mint)" }}>
+                    {n.icon}
+                  </span>
+                  {n.label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Optional features */}
@@ -373,25 +392,6 @@ export default function SettingsPage() {
           <LangToggle />
         </div>
       </div>
-
-      {isOwner && (
-        <Link href="/app/admin" className="card flex items-center justify-between p-6 hover:opacity-90">
-          <span>
-            <span className="block font-semibold">Panel del dueño</span>
-            <span className="muted text-sm">Usuarios, actividad y solicitudes de borrado</span>
-          </span>
-          <span aria-hidden>→</span>
-        </Link>
-      )}
-      {isOwner && (
-        <Link href="/app/pamm" className="card flex items-center justify-between p-6 hover:opacity-90">
-          <span>
-            <span className="block font-semibold">Cuentas PAMM</span>
-            <span className="muted text-sm">Reportes y proyecciones de tus clientes</span>
-          </span>
-          <span aria-hidden>→</span>
-        </Link>
-      )}
 
       <InstallApp />
 
