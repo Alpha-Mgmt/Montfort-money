@@ -58,3 +58,16 @@ export function shortDate(iso: string): string {
 export function monthRange(monthISO: string): { from: string; to: string } {
   return { from: monthISO, to: addMonths(monthISO, 1) };
 }
+
+/** "lunes, 28 de septiembre" / "Monday, September 28" in the app language */
+export function longDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const t = new Date(y, m - 1, d).toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** short month name in the app language: "sep" / "Sep" */
+export function monthShort(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(LOCALE, { month: "short" }).replace(".", "").slice(0, 3);
+}

@@ -55,6 +55,16 @@ export const navItems = [
 /** Desktop sidebar extras (mobile reaches them from the More page). */
 export const toolItems = [
   {
+    href: "/app/trips",
+    label: "Trips",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 19h19" />
+        <path d="M3.5 13.5 7 15l4-2-6.5-5.5 2-1 8.5 4 4-2a2 2 0 0 1 2 3.4L9 17.5l-5-2z" />
+      </svg>
+    ),
+  },
+  {
     href: "/app/summary",
     label: "Summary",
     icon: (

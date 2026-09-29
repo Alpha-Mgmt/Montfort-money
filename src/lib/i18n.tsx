@@ -161,6 +161,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         document.cookie = "mf-join=; path=/; max-age=0";
         window.location.href = `/app/join?code=${m[1]}`;
       }
+      const tm = document.cookie.match(/(?:^|; )mf-trip=([A-Z0-9]+)/);
+      if (tm && !window.location.pathname.startsWith("/app/trips/join")) {
+        document.cookie = "mf-trip=; path=/; max-age=0";
+        window.location.href = `/app/trips/join?code=${tm[1]}`;
+      }
     } catch {}
   }, [applyLang, refreshHousehold]);
 

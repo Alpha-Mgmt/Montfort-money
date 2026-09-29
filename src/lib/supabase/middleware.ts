@@ -45,6 +45,10 @@ export async function updateSession(request: NextRequest) {
     if (path === "/app/join" && join && /^[A-Za-z0-9]{6,12}$/.test(join)) {
       res.cookies.set("mf-join", join.toUpperCase(), { path: "/", maxAge: 60 * 60 * 24 * 14, sameSite: "lax" });
     }
+    // trip invite opened while signed out
+    if (path === "/app/trips/join" && join && /^[A-Za-z0-9]{6,12}$/.test(join)) {
+      res.cookies.set("mf-trip", join.toUpperCase(), { path: "/", maxAge: 60 * 60 * 24 * 14, sameSite: "lax" });
+    }
     return res;
   }
 

@@ -58,6 +58,8 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { ConfirmPay } from "@/components/ConfirmPay";
 import { type LineItemFreq } from "@/components/LineItemAdd";
 import { MonthPicker } from "@/components/MonthPicker";
+import { CategoryEditSheet } from "@/components/CategoryEditSheet";
+import { MonthRail, type RailLine, type RailSlice, type RailTrend } from "@/components/MonthRail";
 import { AIAssistant } from "@/components/AIAssistant";
 import { TxSheet, emptyTxDraft, type TxDraft } from "@/components/TxSheet";
 import { CategoryQuickSheet } from "@/components/CategoryQuickSheet";
@@ -103,6 +105,27 @@ export default function MonthPage() {
   // employer breakdown sheet (group id) and the "+ add" chooser ("in" | "out")
   const [empSheet, setEmpSheet] = useState<string | null>(null);
   const [addMenu, setAddMenu] = useState<"in" | "out" | null>(null);
+  const [catEdit, setCatEdit] = useState<Category | null>(null);
+  const [trendPast, setTrendPast] = useState<{ month: string; income: number; expense: number }[]>([]);
+  useEffect(() => {
+    (async () => {
+      const cur = monthStartISO();
+      const from = addMonths(cur, -5);
+      const { data } = await createClient()
+        .from("transactions")
+        .select("kind,amount,tx_date,debt_id")
+        .gte("tx_date", from)
+        .lt("tx_date", addMonths(cur, 1));
+      const rows = Array.from({ length: 6 }, (_, i) => ({ month: addMonths(from, i), income: 0, expense: 0 }));
+      for (const t of (data ?? []) as { kind: Kind; amount: number; tx_date: string; debt_id: string | null }[]) {
+        const r = rows.find((x) => x.month.slice(0, 7) === t.tx_date.slice(0, 7));
+        if (!r) continue;
+        if (t.kind === "income") { if (!t.debt_id) r.income += Number(t.amount); }
+        else r.expense += Number(t.amount);
+      }
+      setTrendPast(rows);
+    })();
+  }, []);
   const [cats, setCats] = useState<Category[]>([]);
   const [accts, setAccts] = useState<Account[]>([]);
   const [txs, setTxs] = useState<Transaction[]>([]);
@@ -602,6 +625,91 @@ export default function MonthPage() {
   const balances = isPast ? new Map<string, number>() : dailyBalances(month, month === curMonth ? today : month, monthStartCash, events);
   const endOfMonth = isPast ? null : monthStartCash + events.reduce((a, e) => a + e.amount, 0);
   const LOW = 1000;
+
+  // ---------- side rail: calendar / detail / charts ----------
+  const catById = new Map(cats.map((c) => [c.id, c]));
+  const topName = (id: string | null) => {
+    const c = id ? catById.get(id) : undefined;
+    if (!c) return tr("Other");
+    const p = c.parent_id ? catById.get(c.parent_id) : undefined;
+    return (p ?? c).name;
+  };
+  const txTitle = (t: Transaction) =>
+    t.note ||
+    (t.debt_id && debts.find((d) => d.id === t.debt_id)?.name) ||
+    (t.goal_id && goals.find((g) => g.id === t.goal_id)?.name) ||
+    (t.investment_id && invs.find((i) => i.id === t.investment_id)?.name) ||
+    catNameById.get(t.category_id ?? "") ||
+    (t.kind === "income" ? tr("Income") : tr("Expense"));
+  const signedTx = (t: Transaction) => (t.kind === "income" ? t.amount : -t.amount);
+  const railLines: RailLine[] = [
+    ...txs.map((t) => ({ date: t.tx_date, title: txTitle(t), amount: signedTx(t), done: true })),
+    ...events.map((e) => ({ date: e.date, title: e.title, amount: e.amount, done: false })),
+  ];
+  // balance at the end of each PAST day this month: walk back from today's cash
+  const railBalances = new Map(balances);
+  if (month === curMonth && (hasBanks || cashInHandNow > 0)) {
+    const [ry, rm] = month.split("-").map(Number);
+    const byDate = new Map<string, number>();
+    for (const t of txs) byDate.set(t.tx_date, (byDate.get(t.tx_date) ?? 0) + signedTx(t));
+    let bal = cashNow;
+    for (let d = Number(today.slice(8, 10)); d > 1; d--) {
+      bal -= byDate.get(toISO(new Date(ry, rm - 1, d))) ?? 0;
+      railBalances.set(toISO(new Date(ry, rm - 1, d - 1)), bal);
+    }
+  }
+  const badList = [...balances.entries()].filter(([, v]) => v < 0);
+  const railSlices: RailSlice[] = (() => {
+    const mp = new Map<string, RailSlice>();
+    const add = (name: string, actual: number, plan: number) => {
+      const x = mp.get(name) ?? { name, actual: 0, plan: 0 };
+      x.actual += actual;
+      x.plan += plan;
+      mp.set(name, x);
+    };
+    for (const t of catTxs) if (t.kind === "expense") add(topName(t.category_id), t.amount, 0);
+    for (const c of cats) if (c.kind === "expense") add(topName(c.id), 0, planFor(c.id));
+    add(tr("Debts"), debtPaidTotal, debtOnlyPlan);
+    add(tr("Goals"), goalContribTotal, planGoals);
+    add(tr("Investments"), invContribTotal, invPlanDeposit);
+    return [...mp.values()];
+  })();
+  const railTrend: RailTrend[] = [
+    ...trendPast.map((t) => ({ ...t, planned: false })),
+    ...projection.slice(1, 7).map((p) => ({ month: p.month, income: p.income, expense: p.expense, planned: true })),
+  ];
+  const railDetail = {
+    cash: cashNow,
+    invested: totalInvested,
+    debt: totalDebt,
+    goalsSaved: totalGoalSaved,
+    incomeDone: incomeTotal,
+    incomePlan: planIncome,
+    outDone: expenseTotal,
+    outPlan: planExpense,
+    debtPaid: debtPaidTotal,
+    endOfMonth,
+    in12:
+      cashNow + totalInvested - totalDebt + (endOfMonth != null && month === curMonth ? endOfMonth - cashNow : 0) +
+      projection.slice(1, 12).reduce((a, p) => a + p.net, 0),
+  };
+  const rail = (
+    <MonthRail
+      key={month}
+      month={month}
+      today={today}
+      curMonth={curMonth}
+      isPast={isPast}
+      low={LOW}
+      lines={railLines}
+      balances={railBalances}
+      detail={railDetail}
+      slices={railSlices}
+      trend={railTrend}
+      badDays={badList.length}
+      firstBad={badList[0]?.[0] ?? null}
+    />
+  );
   const netWorthShown =
     totalInvested -
     totalDebt +
@@ -992,6 +1100,7 @@ export default function MonthPage() {
     onAdd,
     planEditor,
     onDelete,
+    onEdit,
     children,
   }: {
     id: string;
@@ -1003,6 +1112,7 @@ export default function MonthPage() {
     onAdd?: () => void;
     planEditor?: React.ReactNode;
     onDelete?: () => void;
+    onEdit?: () => void;
     children?: React.ReactNode;
   }) {
     const col = collapsed.has(id);
@@ -1028,6 +1138,11 @@ export default function MonthPage() {
               +
             </button>
           )}
+          {onEdit && (
+            <button className="faint grid h-7 w-6 shrink-0 place-items-center rounded-full text-base leading-none hover:opacity-70" onClick={onEdit} aria-label={tr("Edit {v0}", { v0: name })}>
+              ⋯
+            </button>
+          )}
           {onDelete && <DeleteCategoryButton catId={id} />}
         </div>
         {!col && (
@@ -1039,38 +1154,114 @@ export default function MonthPage() {
     );
   }
 
-  /** A category (and its sub-categories, flattened) as one group of rows. */
-  function CategoryGroup({ cat, kind }: { cat: Category; kind: Kind }) {
-    const members = [cat, ...cats.filter((c) => c.parent_id === cat.id)];
-    const rows = members.flatMap((c) =>
-      (plannedByCat.get(c.id) ?? []).map((p) => ({ kind: "plan" as const, c, p }))
-    );
-    const shown = new Set(rows.map((r) => r.p.item.id));
-    const loose = members.flatMap((c) =>
-      (txByCat.get(c.id) ?? []).filter((t) => !t.recurring_item_id || !shown.has(t.recurring_item_id)).map((t) => ({ c, t }))
-    );
-    const done = members.reduce((s2, c) => s2 + spentIn(c.id), 0);
-    const plan = members.reduce((s2, c) => s2 + planFor(c.id), 0);
-    const isEmpty = rows.length === 0 && loose.length === 0;
-    if (isEmpty && plan === 0) return null;
+  /** one debt as a row (plain function so it can sit in any group) */
+  function debtRow(d: Debt) {
+
+                    const prog = debtProgress(d);
+                    const pm = payoffMonth(d);
+                    const paid = debtPaidThisMonth.get(d.id) ?? 0;
     return (
-      <Group
-        id={cat.id}
-        name={cat.name}
-        done={done}
-        plan={plan}
-        tone={kind === "income" ? "in" : "out"}
-        onAdd={!isUncat(cat.id) ? () => setPlanSheet({ item: null, kind, catId: cat.id }) : undefined}
-        planEditor={rows.length === 0 && !isUncat(cat.id) ? <PlanEditor catId={cat.id} plan={plan} /> : undefined}
-        onDelete={isEmpty && !isUncat(cat.id) ? () => {} : undefined}
-      >
-        {rows.map((r) => (
+      <MoneyRow
+                        key={d.id}
+                        name={d.name}
+                        subtitle={
+                          <>
+                            {tr("You owe {amt}", { amt: money(d.balance) })}
+                            {d.apr > 0 && ` · ${d.apr}%`}
+                            {" · "}
+                            {pm ? tr("paid off {v0}", { v0: payoffLabel(pm) }) : tr("payment doesn't cover interest")}
+                            {d.payment_due_day && ` · ${tr("day {v0}", { v0: d.payment_due_day })}`}
+                            {prog !== null && ` · ${tr("{pct}% paid off", { pct: Math.round(prog * 100) })}`}
+                          </>
+                        }
+                        done={paid}
+                        plan={coveredDebt.has(d.id) ? undefined : debtPlanFor(d)}
+                        tone="out"
+                        onOpen={() => { setDebtDraft(debtToDraft(d)); setDebtOpen(true); }}
+                        onPay={(amount) => quickPayDebt(d.id, amount)}
+                        payLabel={tr("payment to {v0}", { v0: d.name })}
+                        onPlanTap={() => setPlanEditFor(planEditFor === d.id ? null : d.id)}
+                        onDelete={async () => { await createClient().from("debts").update({ archived: true }).eq("id", d.id); load(); }}
+                        deleteLabel={tr("Archive debt")}
+                      >
+                        {planEditFor === d.id && (
+                          <MonthPlanEdit
+                            plan={debtPlanFor(d)}
+                            base={d.planned_payment}
+                            onClose={() => setPlanEditFor(null)}
+                            onSave={async (amount, scope) => {
+                              const supabase = createClient();
+                              const key = month.slice(0, 7);
+                              const mp = { ...(d.month_plans ?? {}) };
+                              if (scope === "all") {
+                                delete mp[key];
+                                await supabase.from("debts").update({ planned_payment: amount, month_plans: Object.keys(mp).length ? mp : null }).eq("id", d.id);
+                              } else {
+                                if (scope === "reset") delete mp[key];
+                                else mp[key] = amount;
+                                await supabase.from("debts").update({ month_plans: Object.keys(mp).length ? mp : null }).eq("id", d.id);
+                              }
+                              load(month);
+                            }}
+                          />
+                        )}
+                      </MoneyRow>
+    );
+  }
+
+  // debts section: grouped by kind (cards, cars, home, lenders, people, other)
+  const DEBT_BUCKETS = ["cards", "cars", "home", "lenders", "people", "other"] as const;
+  type DebtBucket = (typeof DEBT_BUCKETS)[number];
+  const bucketName: Record<DebtBucket, string> = {
+    cards: tr("Credit cards"),
+    cars: tr("Cars"),
+    home: tr("Home"),
+    lenders: tr("Loans & lenders"),
+    people: tr("People"),
+    other: tr("Other debts"),
+  };
+  const bucketOfType = (t: Debt["debt_type"]): DebtBucket =>
+    t === "credit_card" ? "cards" : t === "car_loan" ? "cars" : t === "mortgage" ? "home" : t === "personal_loan" || t === "student_loan" ? "lenders" : "other";
+  const bucketOfText = (txt: string): DebtBucket => {
+    const l = txt.toLowerCase();
+    const hit = liveDebts.find((d) => l.includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(l));
+    if (hit) return bucketOfType(hit.debt_type);
+    if (/tarjeta|card|visa|amex|master|discover|fleet|chase|citi|capital one|credit|cr[ée]dito/.test(l)) return "cards";
+    if (/carro|coche|auto|jeep|mercedes|toyota|vehic|\bcar\b/.test(l)) return "cars";
+    if (/casa|home|hipoteca|mortgage|house/.test(l)) return "home";
+    if (/afterpay|klarna|affirm|cash ?app|zip|sofi|upstart|lending|lender|pr[ée]stamo|loan|student|estudiant/.test(l)) return "lenders";
+    if (/amig|friend|famil|mam[aá]|pap[aá]|herman|brother|sister|t[ií]o|primo|efectivo|boda/.test(l)) return "people";
+    return "other";
+  };
+  const DEBT_CAT = /^(deudas?|debts?)$/i;
+  const debtCatIds = new Set(
+    cats.filter((c) => c.kind === "expense" && (DEBT_CAT.test(c.name) || (c.parent_id && DEBT_CAT.test(catNameById.get(c.parent_id) ?? "")))).map((c) => c.id)
+  );
+
+  /** A group (big category) → its categories (a tinted label strip each) → items. */
+  function CategoryGroup({ cat, kind }: { cat: Category; kind: Kind }) {
+    const kids = cats.filter((c) => c.parent_id === cat.id);
+    const parts = [cat, ...kids].map((c) => {
+      const rows = (plannedByCat.get(c.id) ?? []).map((p) => ({ c, p }));
+      const shown = new Set(rows.map((r) => r.p.item.id));
+      const loose = (txByCat.get(c.id) ?? []).filter((t) => !t.recurring_item_id || !shown.has(t.recurring_item_id));
+      return { c, rows, loose, done: spentIn(c.id), plan: planFor(c.id) };
+    });
+    const done = parts.reduce((s2, p) => s2 + p.done, 0);
+    const plan = parts.reduce((s2, p) => s2 + p.plan, 0);
+    const isEmpty = parts.every((p) => p.rows.length === 0 && p.loose.length === 0);
+    if (isEmpty && plan === 0 && kids.length === 0) return null;
+    const tone = kind === "income" ? "in" : "out";
+    const color = kind === "income" ? "var(--mint)" : "var(--over)";
+    const body = (p: (typeof parts)[number]) => (
+      <>
+        {p.rows.map((r) => (
           <PlanItemRow key={r.p.item.id} item={r.p.item} planTotal={r.p.total} catId={r.c.id} kind={kind} />
         ))}
-        {loose.map(({ c, t }) => (
+        {p.loose.map((t) => (
           <MoneyRow
             key={t.id}
-            name={t.note || c.name}
+            name={t.note || p.c.name}
             subtitle={
               <>
                 ✓ {shortDate(t.tx_date)}
@@ -1079,10 +1270,45 @@ export default function MonthPage() {
               </>
             }
             done={t.amount}
-            tone={kind === "income" ? "in" : "out"}
+            tone={tone}
             onOpen={() => editTx(t)}
             onDelete={() => deleteTx(t.id)}
           />
+        ))}
+      </>
+    );
+    const uncat = isUncat(cat.id);
+    return (
+      <Group
+        id={cat.id}
+        name={cat.name}
+        done={done}
+        plan={plan}
+        tone={tone}
+        onAdd={!uncat ? () => setPlanSheet({ item: null, kind, catId: kids[0]?.id ?? cat.id }) : undefined}
+        planEditor={kids.length === 0 && parts[0].rows.length === 0 && !uncat ? <PlanEditor catId={cat.id} plan={plan} /> : undefined}
+        onEdit={!uncat ? () => setCatEdit(cat) : undefined}
+        onDelete={isEmpty && kids.length === 0 && !uncat ? () => {} : undefined}
+      >
+        {body(parts[0])}
+        {parts.slice(1).map((p) => (
+          <div key={p.c.id} className="!border-t-0">
+            <div className="-mx-4 flex items-center gap-2 border-t px-4 py-2" style={{ background: "var(--bg)", borderColor: "var(--border)" }}>
+              <CategoryDot name={p.c.name} size={7} />
+              <span className="muted min-w-0 truncate text-[11px] font-semibold uppercase tracking-wider">{p.c.name}</span>
+              <span className="ml-auto whitespace-nowrap text-xs font-semibold tabnum">
+                <span className={p.done > 0 ? "" : "faint"} style={p.done > 0 ? { color } : undefined}>{money(p.done)}</span>
+                {p.rows.length === 0 ? <PlanEditor catId={p.c.id} plan={p.plan} /> : <span className="faint font-medium"> / {money(p.plan)}</span>}
+              </span>
+              <button className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold" style={{ background: "var(--mint-soft)", color: "var(--mint)" }} onClick={() => setPlanSheet({ item: null, kind, catId: p.c.id })} aria-label={tr("Add to {v0}", { v0: p.c.name })}>
+                +
+              </button>
+              <button className="faint grid h-6 w-5 shrink-0 place-items-center text-sm leading-none hover:opacity-70" onClick={() => setCatEdit(p.c)} aria-label={tr("Edit {v0}", { v0: p.c.name })}>
+                ⋯
+              </button>
+            </div>
+            {(p.rows.length > 0 || p.loose.length > 0) && <div className="divide-y" style={{ borderColor: "var(--border)" }}>{body(p)}</div>}
+          </div>
         ))}
       </Group>
     );
@@ -1322,110 +1548,6 @@ export default function MonthPage() {
     else delete next[key];
     setCashMap(next);
     await supabase.from("profiles").update({ cash_on_hand: Object.keys(next).length ? next : null }).eq("id", user.id);
-  }
-
-  function MonthCalendar() {
-    const [y, m] = month.split("-").map(Number);
-    const first = new Date(y, m - 1, 1);
-    const days = new Date(y, m, 0).getDate();
-    const lead = (first.getDay() + 6) % 7; // Monday first
-    const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, k) => toISO(new Date(y, m - 1, k + 1)))];
-    const short = (v: number) => {
-      const a = Math.abs(v);
-      const t = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `${Math.round(a)}`;
-      return (v < 0 ? "−" : "") + t;
-    };
-    const wd = [tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"), tr("Fri"), tr("Sat"), tr("Sun")].map((d) => d.slice(0, 1));
-    const bad = [...balances.entries()].filter(([, v]) => v < 0);
-    return (
-      <div className="card p-4">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="font-display text-sm font-semibold">{tr("{m} day by day", { m: monthLabel(month) })}</h3>
-          {month !== curMonth && !isPast && <span className="faint text-[11px]">{tr("estimate")}</span>}
-        </div>
-        {isPast ? (
-          <p className="faint text-xs">{tr("This month already happened — the calendar shows the days ahead.")}</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-7 gap-1 text-[11px]">
-              {wd.map((d, k) => (
-                <div key={k} className="faint pb-0.5 text-center font-semibold">{d}</div>
-              ))}
-              {cells.map((iso, k) => {
-                if (!iso) return <div key={k} />;
-                const v = balances.get(iso);
-                const dayN = Number(iso.slice(8, 10));
-                const isToday = iso === today;
-                const bg = v == null ? "var(--surface-2)" : v < 0 ? "var(--over-soft)" : v < LOW ? "var(--warn-soft)" : "var(--mint-soft)";
-                const fg = v == null ? "var(--text-faint)" : v < 0 ? "var(--over)" : v < LOW ? "var(--warn)" : "var(--mint)";
-                const ev = events.filter((e) => e.date === iso);
-                return (
-                  <div
-                    key={k}
-                    title={ev.length ? ev.map((e) => `${e.title} ${e.amount < 0 ? "−" : "+"}${money(Math.abs(e.amount))}`).join("\n") : undefined}
-                    className="flex aspect-square flex-col justify-between rounded-lg p-1"
-                    style={{ background: bg, outline: isToday ? "2px solid var(--text)" : undefined, opacity: v == null ? 0.55 : 1 }}
-                  >
-                    <b className="font-semibold">{dayN}</b>
-                    {v != null && <span className="tabnum text-[9.5px]" style={{ color: fg }}>{short(v)}</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="faint mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--mint-soft)" }} />{tr("fine")}</span>
-              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--warn-soft)" }} />{tr("under {amt}", { amt: money(LOW) })}</span>
-              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: "var(--over-soft)" }} />{tr("not enough")}</span>
-            </div>
-            {bad.length > 0 && (
-              <p className="mt-2 text-xs" style={{ color: "var(--over)" }}>
-                {tr("{n} days you wouldn't cover everything — first one: {d}", { n: bad.length, d: shortDate(bad[0][0]) })}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
-
-  function NextDays() {
-    const from = month === curMonth ? today : month;
-    const [y, m, d] = from.split("-").map(Number);
-    const until = toISO(new Date(y, m - 1, d + 6));
-    const byDay = new Map<string, typeof events>();
-    for (const e of events) if (e.date >= from && e.date <= until) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
-    const list = [...byDay.entries()];
-    if (isPast) return null;
-    return (
-      <div className="card p-4">
-        <h3 className="mb-1 font-display text-sm font-semibold">{tr("Next 7 days")}</h3>
-        {list.length === 0 ? (
-          <p className="faint text-xs">{tr("Nothing planned these days.")}</p>
-        ) : (
-          list.map(([iso, evs]) => {
-            const net = evs.reduce((a, e) => a + e.amount, 0);
-            const bal = balances.get(iso);
-            return (
-              <div key={iso} className="grid grid-cols-[3.2rem_1fr_auto] gap-2 border-t py-2 text-sm first:border-t-0" style={{ borderColor: "var(--border)" }}>
-                <span className="faint text-xs font-semibold">{iso === today ? tr("Today") : shortDate(iso)}</span>
-                <span className="min-w-0">
-                  <span className="block truncate">{evs.map((e) => e.title).join(" · ")}</span>
-                  {bal != null && bal < LOW && (
-                    <span className="block text-[11px]" style={{ color: bal < 0 ? "var(--over)" : "var(--warn)" }}>
-                      {bal < 0 ? tr("short {amt}", { amt: money(-bal) }) : tr("you'd have {amt}", { amt: money(bal) })}
-                    </span>
-                  )}
-                </span>
-                <span className="tabnum" style={{ color: net < 0 ? "var(--over)" : "var(--mint)" }}>
-                  {net < 0 ? "−" : "+"}
-                  {money(Math.abs(net))}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
-    );
   }
 
   function EmployerBlock({ g }: { g: Category & { children: Category[] } }) {
@@ -1711,6 +1833,28 @@ export default function MonthPage() {
     );
   }
 
+  /** a quiet divider that splits Money out into Spending · Debts · Goals · Investments */
+  function SectionLabel({ title, done, plan, note, onAdd, first = false }: { title: string; done: number; plan: number; note?: string; onAdd?: () => void; first?: boolean }) {
+    return (
+      <div className={`${first ? "" : "mt-4"} px-1`}>
+        <div className="flex items-center gap-3">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--over)" }}>{title}</h3>
+          <span className="h-px flex-1" style={{ background: "var(--border)" }} />
+          <span className="whitespace-nowrap text-xs font-semibold tabnum">
+            <span className={done > 0 ? "" : "faint"} style={done > 0 ? { color: "var(--over)" } : undefined}>{money(done)}</span>
+            <span className="faint font-medium"> / {money(plan)}</span>
+          </span>
+          {onAdd && (
+            <button className="grid h-6 w-6 place-items-center rounded-full text-xs font-semibold" style={{ background: "var(--over-soft)", color: "var(--over)" }} onClick={onAdd} aria-label={tr("Add to {v0}", { v0: title })}>
+              +
+            </button>
+          )}
+        </div>
+        {note && <p className="faint mt-0.5 text-[11px]">{note}</p>}
+      </div>
+    );
+  }
+
   function FlowHeader({ dir }: { dir: "in" | "out" }) {
     const actual = dir === "in" ? incomeTotal : expenseTotal;
     const plan = dir === "in" ? planIncome : planExpense;
@@ -1800,10 +1944,7 @@ export default function MonthPage() {
             {/* ---- CASH, then In / Out ---- */}
             <CashHero />
             {/* phones: the calendar right after cash (desktop shows it in the side rail) */}
-            <div className="grid gap-4 lg:hidden">
-              <MonthCalendar />
-              <NextDays />
-            </div>
+            <div className="lg:hidden">{rail}</div>
             {isFuture && (
               <p className="faint -mt-2 text-xs">
                 {tr("Future month — left side is what's logged, right side is the plan.")}
@@ -1907,71 +2048,75 @@ export default function MonthPage() {
             <div className="grid gap-3">
               {(() => {
                 const t = buildCategoryTree(cats, "expense");
-                return [...t.groups, ...t.standalone].map((c) => <CategoryGroup key={c.id} cat={c} kind="expense" />);
+                const tops = [...t.groups, ...t.standalone].filter((c) => !debtCatIds.has(c.id));
+                const spendCats = cats.filter((c) => c.kind === "expense" && !debtCatIds.has(c.id));
+                const sDone = spendCats.reduce((a2, c) => a2 + spentIn(c.id), 0) + spentIn(uncatId("expense"));
+                const sPlan = spendCats.reduce((a2, c) => a2 + planFor(c.id), 0);
+                return (
+                  <>
+                    <SectionLabel title={tr("Spending")} done={sDone} plan={sPlan} onAdd={() => setPlanSheet({ item: null, kind: "expense", catId: null })} first />
+                    {tops.map((c) => <CategoryGroup key={c.id} cat={c} kind="expense" />)}
+                  </>
+                );
               })()}
               {(txByCat.get(uncatId("expense")) ?? []).length > 0 && (
                 <CategoryGroup cat={{ id: uncatId("expense"), name: tr("Uncategorized"), icon: "🗂️", kind: "expense", parent_id: null }} kind="expense" />
               )}
 
-              {showDebts && liveDebts.length > 0 && (
-                <Group id="g-debts" name={tr("Debts")} pill={tr("payments this month")} done={debtPaidTotal} plan={planDebts} tone="out" onAdd={() => { setDebtDraft(emptyDebtDraft()); setDebtOpen(true); }}>
-                  {debts.map((d) => {
-                    const prog = debtProgress(d);
-                    const pm = payoffMonth(d);
-                    const paid = debtPaidThisMonth.get(d.id) ?? 0;
-                    return (
-                      <MoneyRow
-                        key={d.id}
-                        name={d.name}
-                        subtitle={
-                          <>
-                            {tr("You owe {amt}", { amt: money(d.balance) })}
-                            {d.apr > 0 && ` · ${d.apr}%`}
-                            {" · "}
-                            {pm ? tr("paid off {v0}", { v0: payoffLabel(pm) }) : tr("payment doesn't cover interest")}
-                            {d.payment_due_day && ` · ${tr("day {v0}", { v0: d.payment_due_day })}`}
-                            {prog !== null && ` · ${tr("{pct}% paid off", { pct: Math.round(prog * 100) })}`}
-                          </>
-                        }
-                        done={paid}
-                        plan={debtPlanFor(d)}
-                        tone="out"
-                        onOpen={() => { setDebtDraft(debtToDraft(d)); setDebtOpen(true); }}
-                        onPay={(amount) => quickPayDebt(d.id, amount)}
-                        payLabel={tr("payment to {v0}", { v0: d.name })}
-                        onPlanTap={() => setPlanEditFor(planEditFor === d.id ? null : d.id)}
-                        onDelete={async () => { await createClient().from("debts").update({ archived: true }).eq("id", d.id); load(); }}
-                        deleteLabel={tr("Archive debt")}
-                      >
-                        {planEditFor === d.id && (
-                          <MonthPlanEdit
-                            plan={debtPlanFor(d)}
-                            base={d.planned_payment}
-                            onClose={() => setPlanEditFor(null)}
-                            onSave={async (amount, scope) => {
-                              const supabase = createClient();
-                              const key = month.slice(0, 7);
-                              const mp = { ...(d.month_plans ?? {}) };
-                              if (scope === "all") {
-                                delete mp[key];
-                                await supabase.from("debts").update({ planned_payment: amount, month_plans: Object.keys(mp).length ? mp : null }).eq("id", d.id);
-                              } else {
-                                if (scope === "reset") delete mp[key];
-                                else mp[key] = amount;
-                                await supabase.from("debts").update({ month_plans: Object.keys(mp).length ? mp : null }).eq("id", d.id);
-                              }
-                              load(month);
-                            }}
-                          />
-                        )}
-                      </MoneyRow>
+              {(() => {
+                // ---- DEBTS: its own section, one block per kind ----
+                const blocks = new Map<DebtBucket, { rows: React.ReactNode[]; done: number; plan: number }>();
+                const put = (b: DebtBucket, node: React.ReactNode, done: number, plan: number) => {
+                  const x = blocks.get(b) ?? { rows: [], done: 0, plan: 0 };
+                  x.rows.push(node);
+                  x.done += done;
+                  x.plan += plan;
+                  blocks.set(b, x);
+                };
+                if (showDebts)
+                  for (const d of liveDebts)
+                    put(bucketOfType(d.debt_type), debtRow(d), debtPaidThisMonth.get(d.id) ?? 0, coveredDebt.has(d.id) ? 0 : debtPlanFor(d));
+                for (const cid of debtCatIds) {
+                  const list = plannedByCat.get(cid) ?? [];
+                  const shown = new Set(list.map((p) => p.item.id));
+                  for (const p of list) {
+                    const got = (txByCat.get(cid) ?? []).filter((t) => t.recurring_item_id === p.item.id).reduce((a2, t) => a2 + t.amount, 0);
+                    put(bucketOfText(p.item.title), <PlanItemRow key={p.item.id} item={p.item} planTotal={p.total} catId={cid} kind="expense" />, got, p.total);
+                  }
+                  for (const t of (txByCat.get(cid) ?? []).filter((t) => !t.recurring_item_id || !shown.has(t.recurring_item_id)))
+                    put(
+                      bucketOfText(t.note ?? ""),
+                      <MoneyRow key={t.id} name={t.note || catNameById.get(cid) || tr("Debt")} subtitle={<>✓ {shortDate(t.tx_date)}</>} done={t.amount} tone="out" onOpen={() => editTx(t)} onDelete={() => deleteTx(t.id)} />,
+                      t.amount,
+                      0
                     );
-                  })}
-                </Group>
-              )}
+                }
+                if (blocks.size === 0) return null;
+                const all = [...blocks.values()];
+                return (
+                  <>
+                    <SectionLabel
+                      title={tr("Debts")}
+                      done={all.reduce((a2, x) => a2 + x.done, 0)}
+                      plan={all.reduce((a2, x) => a2 + x.plan, 0)}
+                      note={totalDebt > 0 ? tr("You owe {amt} in total", { amt: money(totalDebt) }) : undefined}
+                      onAdd={() => { setDebtDraft(emptyDebtDraft()); setDebtOpen(true); }}
+                    />
+                    {DEBT_BUCKETS.filter((b) => blocks.has(b)).map((b) => {
+                      const x = blocks.get(b)!;
+                      return (
+                        <Group key={b} id={`debt-${b}`} name={bucketName[b]} done={x.done} plan={x.plan} tone="out" onAdd={() => { setDebtDraft(emptyDebtDraft()); setDebtOpen(true); }}>
+                          {x.rows}
+                        </Group>
+                      );
+                    })}
+                  </>
+                );
+              })()}
 
+              {goals.length > 0 && <SectionLabel title={tr("Goals")} done={goalContribTotal} plan={planGoals} onAdd={() => { setGoalDraft(emptyGoalDraft()); setGoalOpen(true); }} />}
               {goals.length > 0 && (
-                <Group id="g-goals" name={tr("Goals")} pill={tr("saving this month")} done={goalContribTotal} plan={planGoals} tone="out" onAdd={() => { setGoalDraft(emptyGoalDraft()); setGoalOpen(true); }}>
+                <Group id="g-goals" name={tr("Saving this month")} done={goalContribTotal} plan={planGoals} tone="out" onAdd={() => { setGoalDraft(emptyGoalDraft()); setGoalOpen(true); }}>
                   {goals.map((g) => {
                     const m = goalMath(g.target_amount, g.saved, g.target_date, primaryFreq);
                     const added = goalAddedThisMonth.get(g.id) ?? 0;
@@ -2024,7 +2169,10 @@ export default function MonthPage() {
               )}
 
               {showInvs && invs.filter((iv) => iv.monthly_kind !== "withdraw").length > 0 && (
-                <Group id="g-invs" name={tr("Investments")} pill={tr("adding this month")} done={invContribTotal} plan={invPlanDeposit} tone="out" onAdd={() => { setInvDraft(emptyInvDraft()); setInvOpen(true); }}>
+                <SectionLabel title={tr("Investments")} done={invContribTotal} plan={invPlanDeposit} onAdd={() => { setInvDraft(emptyInvDraft()); setInvOpen(true); }} />
+              )}
+              {showInvs && invs.filter((iv) => iv.monthly_kind !== "withdraw").length > 0 && (
+                <Group id="g-invs" name={tr("Adding this month")} done={invContribTotal} plan={invPlanDeposit} tone="out" onAdd={() => { setInvDraft(emptyInvDraft()); setInvOpen(true); }}>
                   {invs.filter((iv) => iv.monthly_kind !== "withdraw").map((iv) => {
                     const added = invAddedThisMonth.get(iv.id) ?? 0;
                     const eoy = projectInvestment(iv.balance, iv.expected_apr, 0, 12 - new Date().getMonth());
@@ -2065,6 +2213,15 @@ export default function MonthPage() {
               </div>
             </div>
 
+            {catEdit && (
+              <CategoryEditSheet
+                key={catEdit.id}
+                cat={catEdit}
+                cats={cats}
+                onClose={() => setCatEdit(null)}
+                onSaved={() => { setCatEdit(null); load(month); }}
+              />
+            )}
             {empSheet && (() => {
               const g = employerGroups.find((x) => x.id === empSheet);
               return g ? (
@@ -2086,17 +2243,8 @@ export default function MonthPage() {
             </p>
           </div>
 
-          {/* Side rail: only the month in time */}
-          <div className="hidden gap-4 lg:sticky lg:top-6 lg:grid">
-            <Link href="/app/ai" className="card flex items-center gap-3 px-4 py-3 text-sm hover:opacity-90">
-              <span className="faint flex-1">{tr("Ask Montfort AI…")}</span>
-              <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "var(--text)", color: "var(--surface)" }}>
-                {tr("Open")}
-              </span>
-            </Link>
-            <MonthCalendar />
-            <NextDays />
-          </div>
+          {/* Side rail: calendar · detail · charts */}
+          <div className="hidden lg:sticky lg:top-6 lg:block">{rail}</div>
         </div>
       )}
 
