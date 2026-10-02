@@ -83,6 +83,10 @@ export function BankConnections() {
         loadPlaidScript(),
       ]);
       if (!link_token || !window.Plaid) throw new Error(error || "link");
+      // OAuth banks leave the page and come back to /app/plaid-oauth — it needs the same token
+      try {
+        localStorage.setItem("mf-plaid-link", JSON.stringify({ token: link_token, at: Date.now() }));
+      } catch {}
       const handler = window.Plaid.create({
         token: link_token,
         onSuccess: async (public_token, metadata) => {

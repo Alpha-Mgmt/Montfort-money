@@ -24,6 +24,9 @@ export async function POST(req: Request) {
       transactions: { days_requested: 400 },
       country_codes: ["US"],
       language: lang === "es" ? "es" : "en",
+      // OAuth banks (Chase, BofA, Wells…) send the person back here; must be
+      // registered in the Plaid dashboard under Allowed redirect URIs
+      ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
     });
     return NextResponse.json({ link_token: j.link_token });
   } catch (e: any) {
