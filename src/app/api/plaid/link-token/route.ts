@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ link_token: j.link_token });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "plaid_error" }, { status: 502 });
+    console.error("plaid link-token", e?.code, e?.message);
+    return NextResponse.json({ error: [e?.code, e?.message].filter(Boolean).join(": ") || "plaid_error" }, { status: 502 });
   }
 }

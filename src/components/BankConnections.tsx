@@ -109,7 +109,7 @@ export function BankConnections() {
       });
       handler.open();
     } catch (e: any) {
-      setMsg(t("Couldn't start the bank connection."));
+      setMsg(t("Couldn't start the bank connection.") + (e?.message && e.message !== "link" ? ` (${e.message})` : ""));
       setBusy("");
     }
   }
