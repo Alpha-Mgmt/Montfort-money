@@ -13,7 +13,7 @@ const T = {
     price: "Pricing",
     signin: "Sign in",
     start: "Start free",
-    pill: "Free · no card · ready in 2 minutes",
+    pill: "Free · no card required · ready in 2 minutes",
     h1a: "Your money,",
     h1b: "on autopilot.",
     lead: "Connect your bank and Montfort AI does the rest: it builds your budget, sorts every expense and tells you how much you'll have on the 30th. You don't fill in a thing.",
@@ -47,7 +47,7 @@ const T = {
     stats: [
       [12000, "+", "", "banks and cards"],
       [2, " min", "", "to get your budget"],
-      [0, "", "$", "during beta"],
+      [0, "", "$", "free · no card required"],
       [24, "/7", "", "your AI money coach"],
     ] as [number, string, string, string][],
     featEye: "All in one place",
@@ -65,12 +65,12 @@ const T = {
     tripName: "Italy 2027",
     tripMeta: "4 people · $2,840 / $4,000",
     priceEye: "Pricing",
-    priceText: "Free during beta. Early members keep a founder price forever.",
+    priceText: "Free. No card required. Everything you see here costs nothing.",
     checks: ["Bank connection", "Budget built by AI", "Calendar and 12-month forecast", "Debt payoff plan", "Montfort AI included"],
     priceCta: "Create my free account →",
     finalA: "Stop guessing.",
     finalB: "Know your month today.",
-    finalSub: "2 minutes. No card. The AI does the rest.",
+    finalSub: "Free. No card required. The AI does the rest.",
     privacy: "Privacy",
     terms: "Terms",
   },
@@ -113,7 +113,7 @@ const T = {
     stats: [
       [12000, "+", "", "bancos y tarjetas"],
       [2, " min", "", "para tener tu presupuesto"],
-      [0, "", "$", "durante la beta"],
+      [0, "", "$", "gratis · sin tarjeta"],
       [24, "/7", "", "tu AI financiera"],
     ] as [number, string, string, string][],
     featEye: "Todo en un lugar",
@@ -131,12 +131,12 @@ const T = {
     tripName: "Italia 2027",
     tripMeta: "4 personas · $2,840 / $4,000",
     priceEye: "Precio",
-    priceText: "Gratis durante la beta. Los primeros usuarios se quedan con precio de fundador para siempre.",
+    priceText: "Gratis. Sin tarjeta. Todo lo que ves aquí no cuesta nada.",
     checks: ["Conexión con tu banco", "Presupuesto armado por la AI", "Calendario y proyección de 12 meses", "Plan para salir de deudas", "Montfort AI incluido"],
     priceCta: "Crear mi cuenta gratis →",
     finalA: "Deja de adivinar.",
     finalB: "Conoce tu mes hoy.",
-    finalSub: "2 minutos. Sin tarjeta. La AI hace el resto.",
+    finalSub: "Gratis. Sin tarjeta. La AI hace el resto.",
     privacy: "Privacidad",
     terms: "Términos",
   },
@@ -347,8 +347,8 @@ const STEP_VIZ = [
   <svg key="1" viewBox="0 0 300 150" width="100%" height="100%" aria-hidden>
     {["Chase", "BofA", "Wells", "Amex", "Cap One", "Discover"].map((b, i) => (
       <g key={b} transform={`translate(${30 + (i % 3) * 85},${24 + Math.floor(i / 3) * 52})`}>
-        <rect width="72" height="36" rx="10" fill="#1a2a3a" stroke="rgba(185,206,221,.14)" />
-        <text x="36" y="23" textAnchor="middle" fill="#b9cedd" fontSize="12" fontWeight="600">
+        <rect width="72" height="36" rx="10" className="lp-s-card lp-s-line" />
+        <text x="36" y="23" textAnchor="middle" className="lp-s-soft" fontSize="12" fontWeight="600">
           {b}
         </text>
         {i === 0 && <rect width="72" height="36" rx="10" fill="none" stroke="#2bd396" strokeWidth="2" className="lp-blink" />}
@@ -362,8 +362,8 @@ const STEP_VIZ = [
       ["SHELL OIL", "#b49cff"],
     ].map(([m, col], i) => (
       <g key={m} transform={`translate(22,${20 + i * 40})`}>
-        <rect width="256" height="32" rx="9" fill="#1a2a3a" />
-        <text x="12" y="20" fill="#eef4f8" fontSize="12" fontWeight="600">
+        <rect width="256" height="32" rx="9" className="lp-s-card" />
+        <text x="12" y="20" className="lp-s-text" fontSize="12" fontWeight="600">
           {m}
         </text>
         <rect x="186" y="8" width="60" height="16" rx="8" fill={col} fillOpacity=".25" className="lp-tag" style={{ animationDelay: `${i * 0.6}s` }} />
@@ -377,8 +377,8 @@ const STEP_VIZ = [
       const c = [3, 9, 17].includes(i) ? "#f47070" : [0, 14].includes(i) ? "#2bd396" : "#1a2a3a";
       return (
         <g key={i}>
-          <rect x={x} y={y} width="32" height="27" rx="7" fill={c} fillOpacity={c === "#1a2a3a" ? 1 : 0.3} />
-          <text x={x + 5} y={y + 12} fill="#7f9bb0" fontSize="8">
+          <rect x={x} y={y} width="32" height="27" rx="7" className={c === "#1a2a3a" ? "lp-s-card" : undefined} fill={c === "#1a2a3a" ? undefined : c} fillOpacity={c === "#1a2a3a" ? 1 : 0.3} />
+          <text x={x + 5} y={y + 12} className="lp-s-faint" fontSize="8">
             {i + 1}
           </text>
         </g>
@@ -389,6 +389,21 @@ const STEP_VIZ = [
 
 export default function Landing() {
   const [lang, setLang] = useState<L>("en");
+  // the landing is dark unless the person picked light mode
+  const [light, setLight] = useState(false);
+  useEffect(() => {
+    try {
+      setLight(localStorage.getItem("mf-theme") === "light");
+    } catch {}
+  }, []);
+  const switchTheme = () => {
+    const n = !light;
+    setLight(n);
+    document.documentElement.classList.toggle("theme-light", n);
+    try {
+      localStorage.setItem("mf-theme", n ? "light" : "dark");
+    } catch {}
+  };
   useEffect(() => {
     let l: L | null = null;
     try {
@@ -408,7 +423,7 @@ export default function Landing() {
   const t = T[lang];
 
   return (
-    <div className="lp">
+    <div className={`lp ${light ? "lp-light" : ""}`}>
       <div className="lp-hero">
         <div className="lp-glow" />
         <div className="lp-gridbg" />
@@ -425,6 +440,9 @@ export default function Landing() {
               <a href="#price" className="max-md:!hidden">
                 {t.price}
               </a>
+              <button onClick={switchTheme} className="lp-lang" aria-label={lang === "es" ? "Cambiar tema" : "Toggle theme"}>
+                {light ? "☾" : "☀"}
+              </button>
               <button onClick={switchLang} className="lp-lang">
                 {lang === "en" ? "ES" : "EN"}
               </button>
@@ -514,7 +532,7 @@ export default function Landing() {
                       </g>
                     );
                   })}
-                  <line x1="0" x2="640" y1="61" y2="61" stroke="rgba(185,206,221,.2)" />
+                  <line x1="0" x2="640" y1="61" y2="61" className="lp-s-line" />
                 </svg>
               </div>
               <h4>{t.feats[0][0]}</h4>
@@ -523,7 +541,7 @@ export default function Landing() {
             <div className="lp-fc">
               <div className="lp-viz grid place-items-center">
                 <svg viewBox="0 0 42 42" width="110" height="110" aria-hidden>
-                  <circle cx="21" cy="21" r="15.9" fill="none" stroke="#1a2a3a" strokeWidth="5" />
+                  <circle cx="21" cy="21" r="15.9" fill="none" className="lp-s-ring" strokeWidth="5" />
                   {(() => {
                     let off = 25;
                     return (
@@ -540,7 +558,7 @@ export default function Landing() {
                       return el;
                     });
                   })()}
-                  <text x="21" y="23" textAnchor="middle" fill="#eef4f8" fontSize="5" fontWeight="700">
+                  <text x="21" y="23" textAnchor="middle" className="lp-s-text" fontSize="5" fontWeight="700">
                     $3,410
                   </text>
                 </svg>
@@ -553,7 +571,7 @@ export default function Landing() {
                 <svg viewBox="0 0 300 120" width="100%" height="100%" preserveAspectRatio="none" aria-hidden>
                   <path d="M10,20 C90,40 150,70 290,108" fill="none" stroke="#f47070" strokeWidth="2.5" className="lp-line" />
                   <path d="M10,20 C70,55 120,95 200,108" fill="none" stroke="#2bd396" strokeWidth="2.5" className="lp-line" style={{ animationDelay: ".4s" }} />
-                  <text x="290" y="92" textAnchor="end" fill="#2bd396" fontSize="11" fontWeight="700">
+                  <text x="14" y="110" fill="#2bd396" fontSize="11" fontWeight="700">
                     {t.free}
                   </text>
                 </svg>
