@@ -637,3 +637,29 @@ html.theme-light .input {
 .tabnum {
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- AI setup (chat + live plan) ---------- */
+.setup-msg{max-width:88%;padding:.7rem .9rem;border-radius:1.1rem;font-size:.95rem;line-height:1.5;animation:mf-in .35s ease}
+.setup-ai{align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:.35rem}
+.setup-me{align-self:flex-end;color:#fff;background:linear-gradient(135deg,var(--mint-strong),var(--grad-to));border-bottom-right-radius:.35rem}
+.setup-typing{display:inline-flex;gap:4px;padding:.9rem 1rem}
+.setup-typing i{width:7px;height:7px;border-radius:50%;background:var(--text-faint);animation:mf-bounce 1s infinite}
+.setup-typing i:nth-child(2){animation-delay:.15s}.setup-typing i:nth-child(3){animation-delay:.3s}
+.setup-in{align-self:stretch;display:flex;animation:mf-in .35s ease}
+.setup-chip{border:1.5px solid var(--border);background:var(--surface);border-radius:999px;padding:.45rem .9rem;font-weight:600;font-size:.875rem;color:var(--text);transition:all .15s}
+.setup-chip:hover{border-color:var(--mint);color:var(--mint)}
+.setup-chip-p{background:linear-gradient(100deg,var(--mint-strong),var(--grad-to));color:#fff;border-color:transparent}
+.setup-chip-p:hover{color:#fff;filter:brightness(1.05)}
+.setup-chip-off{border-color:var(--over);color:var(--over);background:var(--over-soft)}
+.setup-card{border:1px solid var(--border);background:var(--surface);border-radius:1.1rem;padding:.9rem}
+.setup-q{display:grid;gap:2px;border:1px solid var(--border);background:var(--surface);border-radius:.8rem;padding:.55rem .75rem}
+.setup-q span{font-size:.75rem;color:var(--text-faint)}
+.setup-line{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:.6rem;align-items:center;padding:.55rem .75rem;border-radius:.8rem;background:var(--surface-2);font-size:.875rem}
+.setup-dot{width:8px;height:8px;border-radius:50%}
+.setup-tag{font-size:10px;font-weight:700;color:var(--grad-to)}
+.setup-land{animation:mf-land .6s cubic-bezier(.2,.9,.3,1.2)}
+.setup-draw{stroke-dasharray:200;stroke-dashoffset:200;animation:mf-draw 1.2s forwards}
+@keyframes mf-in{from{opacity:0;transform:translateY(8px)}}
+@keyframes mf-land{from{opacity:0;transform:translateX(20px);background:var(--mint-soft)}}
+@keyframes mf-bounce{50%{transform:translateY(-4px);opacity:.4}}
+@keyframes mf-draw{to{stroke-dashoffset:0}}
