@@ -300,7 +300,7 @@ export function AiSetup() {
     return a;
   }
 
-  async function reveal(a: Analysis) {
+  async function reveal(a: Analysis): Promise<Analysis> {
     const p = P.current;
     const shown = new Set(p.rows.map((r) => r.key));
     const fresh = a.found.filter((f) => !shown.has(f.key));
@@ -324,13 +324,20 @@ export function AiSetup() {
           `Encontré tu ingreso: **${money(top.amount)} ${fq[top.freq] ?? ""}** de ${top.title}. Eso es como **${m0(top.monthly)} al mes**${top.freq === "biweekly" ? " (hay meses con 3 pagos)" : ""}.`
         ) + (inc.length > 1 ? S(` Plus ${inc.length - 1} more income.`, ` Y ${inc.length - 1} ingreso(s) más.`) : "")
       );
-    } else if (!p.rows.some((r) => r.kind === "income")) {
+    } else if (!p.rows.some((r) => r.kind === "income") && !p.extras.some((e) => e.kind === "income")) {
       await say(
         S(
-          "I don't see a regular paycheck in this account. How much do you get paid, and how often?",
-          "No veo un sueldo fijo en esta cuenta. ¿Cuánto te pagan y cada cuándo?"
+          "I don't see a regular paycheck here. Do you get paid into another account (Cash App, another bank)?",
+          "No veo un sueldo fijo aquí. ¿Te pagan en otra cuenta (Cash App, otro banco)?"
         )
       );
+      const other = S("Connect that account", "Conectar esa cuenta");
+      const c1 = await choose([other, S("I'll tell you how much", "Te digo cuánto")]);
+      if (c1 === other && (await connectFlow())) {
+        const a2 = await scan();
+        return reveal(a2);
+      }
+      await say(S("How much do you get paid, and how often?", "¿Cuánto te pagan y cada cuándo?"));
       const pay = await widget<{ amount: number; freq: Frequency; date: string } | null>((done) => <PayForm es={es} onDone={done} />);
       if (pay) {
         me(`${money(pay.amount)} · ${pay.freq}`);
@@ -372,7 +379,7 @@ export function AiSetup() {
           "Your bank is still sending older history (it can take a few minutes). I'll keep refining as it arrives.",
           "Tu banco todavía está mandando el historial más viejo (a veces tarda unos minutos). Voy a afinar conforme llegue."
         )
-      );
+      );    return a;
   }
 
   async function askQuestions(a: Analysis) {
@@ -685,7 +692,16 @@ export function AiSetup() {
       return router.push("/app/welcome/manual");
     }
     if (bank.names.length) {
-      await say(S(`You already have **${bank.names.join(", ")}** connected. I'll read your movements.`, `Ya tienes **${bank.names.join(", ")}** conectado. Voy a leer tus movimientos.`));
+      await say(S(`You already have **${bank.names.join(", ")}** connected.`, `Ya tienes **${bank.names.join(", ")}** conectado.`));
+      await say(
+        S(
+          "Do you get money in another account too — **Cash App**, another bank, a card? Connect it so I see the whole picture.",
+          "¿Recibes dinero en otra cuenta también — **Cash App**, otro banco, una tarjeta? Conéctala para que vea todo completo."
+        )
+      );
+      const more = S("Connect another account", "Conectar otra cuenta");
+      const c0 = await choose([S("No, just that one", "No, solo esa"), more]);
+      if (c0 === more) await connectFlow();
     } else {
       await say(
         S(
@@ -724,7 +740,7 @@ export function AiSetup() {
     setStep(2);
     await say(S("Let me read your movements. Watch your plan fill in →", "Déjame leer tus movimientos. Mira cómo se llena tu plan →"), 200);
     let a = await scan();
-    await reveal(a);
+    a = await reveal(a);
     await askQuestions(a);
     await reviewSubs();
     for (;;) {
@@ -733,7 +749,7 @@ export function AiSetup() {
       const ok = await connectFlow();
       if (ok) {
         a = await scan();
-        await reveal(a);
+        a = await reveal(a);
         await askQuestions(a);
       }
     }

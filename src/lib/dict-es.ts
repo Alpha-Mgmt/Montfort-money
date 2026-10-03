@@ -1136,4 +1136,6 @@ export const es: Record<string, string> = {
   "Net worth ahead": "Patrimonio a futuro",
   "Your year": "Tu año",
   "All spaces together": "Todos los espacios",
+  "Couldn't reset: {v0}": "No se pudo reiniciar: {v0}",
+  "Fresh start: wipes movements, plan, debts, investments, goals, tasks and categories. Your bank stays connected and sends its history again, and Montfort AI sets you up from scratch. This can't be undone.": "Empezar de cero: borra movimientos, plan, deudas, inversiones, metas, pendientes y categorías. Tu banco sigue conectado y vuelve a mandar tu historial, y Montfort AI te arma todo desde cero. No se puede deshacer.",
 };

@@ -28,7 +28,7 @@ const accountTypes: Account["type"][] = [
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { features, setFeature, household } = useApp();
+  const { features, setFeature, household, lang } = useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [accts, setAccts] = useState<Account[]>([]);
@@ -256,25 +256,19 @@ export default function SettingsPage() {
     }
     setArmAll(false);
     setBusy(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const uid = user!.id;
-    // order matters: transactions first (they link to everything else)
-    for (const t of [
-      "transactions",
-      "tasks",
-      "recurring_items",
-      "budgets",
-      "debts",
-      "investments",
-      "goals",
-    ]) {
-      await supabase.from(t).delete().eq("user_id", uid);
-    }
+    const r = await fetch("/api/account/fresh-start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ lang }),
+    });
+    const j = await r.json().catch(() => ({}));
     setBusy(false);
-    setResetMsg(tr("Everything wiped — categories and accounts kept. Fresh start."));
+    if (!r.ok) {
+      setResetMsg(tr("Couldn't reset: {v0}", { v0: j.error ?? "error" }));
+      return;
+    }
+    window.dispatchEvent(new Event("mf:changed"));
+    router.push("/app/welcome");
   }
 
   return (
@@ -467,7 +461,7 @@ export default function SettingsPage() {
         <div className="mt-3">
           <p className="text-sm font-medium">{tr("Reset everything")}</p>
           <p className="muted mt-0.5 text-sm">
-            {tr("Wipes all transactions, plans, debts, investments, goals and tasks. Your categories, accounts and login stay. This can't be undone.")}
+            {tr("Fresh start: wipes movements, plan, debts, investments, goals, tasks and categories. Your bank stays connected and sends its history again, and Montfort AI sets you up from scratch. This can't be undone.")}
           </p>
           <button
             className={`btn mt-2 ${armAll ? "btn-danger" : "btn-ghost"}`}
