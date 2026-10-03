@@ -15,6 +15,7 @@ import type {
   Task,
 } from "@/lib/types";
 import { tr } from "@/lib/i18n";
+import { TaskBoard, type BoardView } from "@/components/tasks/TaskBoard";
 
 type Draft = {
   id?: string;
@@ -55,6 +56,23 @@ function TasksInner() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
+  const [view, setView] = useState<BoardView | "list">("week");
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("mf-tasks-view");
+      if (v === "week" || v === "day" || v === "month" || v === "list") setView(v);
+    } catch {}
+    const on = (e: Event) => pick((e as CustomEvent).detail);
+    window.addEventListener("mf:tasks-view", on);
+    return () => window.removeEventListener("mf:tasks-view", on);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function pick(v: BoardView | "list") {
+    setView(v);
+    try {
+      localStorage.setItem("mf-tasks-view", v);
+    } catch {}
+  }
 
   async function load() {
     const [t, c, a] = await Promise.all([
@@ -153,6 +171,7 @@ function TasksInner() {
     setBusy(false);
     setOpen(false);
     load();
+    window.dispatchEvent(new Event("mf:changed"));
   }
 
   async function remove() {
@@ -163,6 +182,7 @@ function TasksInner() {
     setBusy(false);
     setOpen(false);
     load();
+    window.dispatchEvent(new Event("mf:changed"));
   }
 
   return (
@@ -174,18 +194,49 @@ function TasksInner() {
             {tr("Check one off and your budget updates itself.")}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={startAdd}>
+        <button className="btn btn-primary whitespace-nowrap" onClick={startAdd}>
           {tr("+ New")}
         </button>
       </div>
 
-      {flash && (
+      <div className="flex w-fit gap-1 rounded-xl p-1" style={{ background: "var(--surface-2)" }}>
+        {(
+          [
+            ["week", tr("Week")],
+            ["day", tr("Day")],
+            ["month", tr("Month")],
+            ["list", tr("List")],
+          ] as [BoardView | "list", string][]
+        ).map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => pick(v)}
+            className="rounded-lg px-3.5 py-1.5 text-sm font-semibold"
+            style={view === v ? { background: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,.08)" } : { color: "var(--text-soft)" }}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {view !== "list" && (
+        <TaskBoard
+          view={view}
+          onDetails={(id) => {
+            const t = tasks.find((x) => x.id === id);
+            if (t) startEdit(t);
+            else load().then(() => null);
+          }}
+        />
+      )}
+
+      {view === "list" && flash && (
         <div className="chip w-full justify-center !py-2.5 text-center">
           {flash}
         </div>
       )}
 
-      {loading ? (
+      {view !== "list" ? null : loading ? (
         <p className="faint mt-6 text-center text-sm">{tr("Loading…")}</p>
       ) : pending.length === 0 && completed.length === 0 ? (
         <div className="card p-8 text-center">
