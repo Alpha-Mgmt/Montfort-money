@@ -1148,4 +1148,6 @@ export const es: Record<string, string> = {
   "Next": "Siguiente",
   "Move": "Mover",
   "Done": "Hecho",
+  "Up": "Subir",
+  "Down": "Bajar",
 };

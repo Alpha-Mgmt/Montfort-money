@@ -18,7 +18,10 @@ type T = {
   status: "pending" | "completed";
   amount: number | null;
   created_at: string;
+  position: number | null;
 };
+/** order inside a day: explicit position, else when it was created */
+const keyOf = (t: T) => (t.position ?? Date.parse(t.created_at) / 1000);
 export type BoardView = "week" | "day" | "month";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -39,6 +42,8 @@ const monday = (s: string) => {
   return iso(d);
 };
 const todayStr = () => iso(new Date());
+/** the line being dragged right now (set synchronously, before React re-renders) */
+const DRAG: { id: string | null } = { id: null };
 /** a textarea that grows with its text, so long lines wrap instead of hiding */
 const grow = (el: HTMLTextAreaElement | null) => {
   if (!el) return;
@@ -58,7 +63,11 @@ type Api = {
   setOverDay: React.Dispatch<React.SetStateAction<string | null>>;
   add: (title: string, date: string | null) => void;
   rename: (t: T, title: string) => void;
-  move: (id: string, date: string | null) => void;
+  move: (id: string, date: string | null, position?: number) => void;
+  place: (id: string, day: string | null, targetId: string, where: "before" | "after") => void;
+  nudge: (t: T, day: string | null, dir: -1 | 1) => void;
+  rowOver: { id: string; where: "before" | "after" } | null;
+  setRowOver: React.Dispatch<React.SetStateAction<{ id: string; where: "before" | "after" } | null>>;
   remove: (id: string) => void;
   toggle: (t: T) => void;
   onDetails: (id: string) => void;
@@ -75,11 +84,12 @@ export function TaskBoard({ view, onDetails }: { view: BoardView; onDetails: (id
   const [dragId, setDragId] = useState<string | null>(null);
   const [overDay, setOverDay] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const [rowOver, setRowOver] = useState<{ id: string; where: "before" | "after" } | null>(null);
 
   async function load() {
     const { data } = await createClient()
       .from("tasks")
-      .select("id,title,due_date,status,amount,created_at")
+      .select("id,title,due_date,status,amount,created_at,position")
       .order("created_at", { ascending: true });
     setTasks(((data ?? []) as any[]).map((t) => ({ ...t, amount: t.amount == null ? null : Number(t.amount) })));
   }
@@ -97,20 +107,21 @@ export function TaskBoard({ view, onDetails }: { view: BoardView; onDetails: (id
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(t);
     }
+    for (const l of m.values()) l.sort((a, b) => keyOf(a) - keyOf(b));
     return m;
   }, [tasks]);
 
   /* ---------- writes (optimistic) ---------- */
   const db = () => createClient();
   async function add(title: string, date: string | null) {
-    const tmp: T = { id: `tmp-${Date.now()}`, title, due_date: date, status: "pending", amount: null, created_at: new Date().toISOString() };
+    const tmp: T = { id: `tmp-${Date.now()}`, title, due_date: date, status: "pending", amount: null, created_at: new Date().toISOString(), position: Date.now() / 1000 };
     setTasks((x) => [...x, tmp]);
     const {
       data: { user },
     } = await db().auth.getUser();
     const { data } = await db()
       .from("tasks")
-      .insert({ user_id: user!.id, title, kind: "expense", amount: null, category_id: null, account_id: null, due_date: date, recurrence: "none" })
+      .insert({ user_id: user!.id, title, kind: "expense", amount: null, category_id: null, account_id: null, due_date: date, recurrence: "none", position: tmp.position })
       .select("id,created_at")
       .single();
     if (data) setTasks((x) => x.map((t) => (t.id === tmp.id ? { ...t, id: (data as any).id, created_at: (data as any).created_at } : t)));
@@ -121,10 +132,29 @@ export function TaskBoard({ view, onDetails }: { view: BoardView; onDetails: (id
     setTasks((x) => x.map((y) => (y.id === t.id ? { ...y, title } : y)));
     await db().from("tasks").update({ title }).eq("id", t.id);
   }
-  async function move(id: string, date: string | null) {
-    setTasks((x) => x.map((y) => (y.id === id ? { ...y, due_date: date } : y)));
+  async function move(id: string, date: string | null, position?: number) {
+    const patch: Partial<T> = position === undefined ? { due_date: date } : { due_date: date, position };
+    setTasks((x) => x.map((y) => (y.id === id ? { ...y, ...patch } : y)));
     setMenu(null);
-    await db().from("tasks").update({ due_date: date }).eq("id", id);
+    await db().from("tasks").update(patch).eq("id", id);
+  }
+  /** put a task right before / after another one (any day) */
+  function place(id: string, day: string | null, targetId: string, where: "before" | "after") {
+    const list = (byDay.get(day ?? "none") ?? []).filter((t) => t.id !== id);
+    const i = list.findIndex((t) => t.id === targetId);
+    if (i < 0) return move(id, day);
+    const k = keyOf(list[i]);
+    const nb = where === "before" ? list[i - 1] : list[i + 1];
+    const pos = nb ? (k + keyOf(nb)) / 2 : where === "before" ? k - 1 : k + 1;
+    move(id, day, pos);
+  }
+  /** one step up (-1) or down (+1) inside its day */
+  function nudge(t: T, day: string | null, dir: -1 | 1) {
+    const list = byDay.get(day ?? "none") ?? [];
+    const i = list.findIndex((x) => x.id === t.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    place(t.id, day, list[j].id, dir < 0 ? "before" : "after");
   }
   async function remove(id: string) {
     setTasks((x) => x.filter((y) => y.id !== id));
@@ -140,21 +170,22 @@ export function TaskBoard({ view, onDetails }: { view: BoardView; onDetails: (id
   /* ---------- pieces ---------- */
   const dropProps = (day: string | null) => ({
     onDragOver: (e: React.DragEvent) => {
-      if (!dragId) return;
+      if (!DRAG.id) return;
       e.preventDefault();
       setOverDay(day ?? "none");
     },
     onDragLeave: () => setOverDay((o) => (o === (day ?? "none") ? null : o)),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
-      const id = e.dataTransfer.getData("text/plain") || dragId;
+      const id = e.dataTransfer.getData("text/plain") || DRAG.id;
+      DRAG.id = null;
       setOverDay(null);
       setDragId(null);
       if (id) move(id, day);
     },
   });
 
-  const api: Api = { loc, anchor, byDay, dragId, overDay, menu, setMenu, setDragId, setOverDay, add, rename, move, remove, toggle, onDetails, dropProps };
+  const api: Api = { loc, anchor, byDay, dragId, overDay, menu, setMenu, setDragId, setOverDay, add, rename, move, remove, toggle, onDetails, dropProps, place, nudge, rowOver, setRowOver };
   /* ---------- views ---------- */
   const weekStart = monday(anchor);
   const step = view === "week" ? 7 : view === "day" ? 1 : 0;
@@ -288,6 +319,7 @@ function MonthGrid({
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", t.id);
+                  DRAG.id = t.id;
                   setDragId(t.id);
                 }}
                 onDragEnd={() => setDragId(null)}
@@ -306,23 +338,48 @@ function MonthGrid({
 }
 
 function Row({ t, day, compact }: { t: T; day: string | null; compact?: boolean }) {
-  const { loc, anchor, dragId, menu, setMenu, setDragId, setOverDay, rename, move, remove, toggle, onDetails } = useContext(Ctx);
+  const { loc, anchor, dragId, menu, setMenu, setDragId, setOverDay, rename, move, remove, toggle, onDetails, place, nudge, rowOver, setRowOver } = useContext(Ctx);
   const [v, setV] = useState(t.title);
   useEffect(() => setV(t.title), [t.title]);
   const done = t.status === "completed";
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday(day ?? anchor), i));
   return (
     <div
-      className={`tb-row group ${done ? "tb-done" : ""} ${dragId === t.id ? "opacity-40" : ""}`}
+      className={`tb-row group ${done ? "tb-done" : ""} ${dragId === t.id ? "opacity-40" : ""} ${rowOver?.id === t.id ? `tb-ins-${rowOver.where}` : ""}`}
+      onDragOver={(e) => {
+        if (!DRAG.id || DRAG.id === t.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const where = e.clientY < r.top + r.height / 2 ? "before" : "after";
+        if (rowOver?.id !== t.id || rowOver.where !== where) setRowOver({ id: t.id, where });
+        setOverDay(day ?? "none");
+      }}
+      onDragLeave={() => setRowOver((o) => (o?.id === t.id ? null : o))}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = e.dataTransfer.getData("text/plain") || DRAG.id;
+        DRAG.id = null;
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const where = e.clientY < r.top + r.height / 2 ? "before" : "after";
+        setRowOver(null);
+        setOverDay(null);
+        setDragId(null);
+        if (id && id !== t.id) place(id, day, t.id, where);
+      }}
       draggable={!t.id.startsWith("tmp-")}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", t.id);
         e.dataTransfer.effectAllowed = "move";
+        DRAG.id = t.id;
         setDragId(t.id);
       }}
       onDragEnd={() => {
+        DRAG.id = null;
         setDragId(null);
         setOverDay(null);
+        setRowOver(null);
       }}
     >
       <button className={`tb-check ${done ? "tb-check-on" : ""}`} onClick={() => toggle(t)} aria-label={done ? tr("Undo") : tr("Done")}>
@@ -350,6 +407,11 @@ function Row({ t, day, compact }: { t: T; day: string | null; compact?: boolean 
             (e.target as HTMLTextAreaElement).blur();
           }
           // Alt + ← / → moves the line one day
+          if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            e.preventDefault();
+            nudge(t, day, e.key === "ArrowUp" ? -1 : 1);
+            setTimeout(() => (e.target as HTMLTextAreaElement).focus(), 60);
+          }
           if (e.altKey && day && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
             e.preventDefault();
             move(t.id, addDays(day, e.key === "ArrowLeft" ? -1 : 1));
@@ -363,6 +425,14 @@ function Row({ t, day, compact }: { t: T; day: string | null; compact?: boolean 
       </button>
       {menu === t.id && (
         <div className="tb-menu" onMouseLeave={() => setMenu(null)}>
+          <div className="mb-1 grid grid-cols-2 gap-1 px-1">
+            <button className="tb-mbtn" onClick={() => (setMenu(null), nudge(t, day, -1))}>
+              ↑ {tr("Up")}
+            </button>
+            <button className="tb-mbtn" onClick={() => (setMenu(null), nudge(t, day, 1))}>
+              ↓ {tr("Down")}
+            </button>
+          </div>
           <div className="faint px-2 pb-1 text-[10px] font-bold uppercase tracking-wide">{tr("Move to")}</div>
           <div className="grid grid-cols-4 gap-1 px-1">
             {weekDays.map((d) => (
