@@ -286,10 +286,6 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
         <div class="hd-grid" id="e-kpis"></div>
       </div>
       <div class="card sec">
-        <div class="sec-h"><h2>En pocas palabras</h2></div>
-        <div class="exp-text" id="e-text"></div>
-      </div>
-      <div class="card sec">
         <div class="sec-h"><h2>Tu dinero año por año</h2><div class="legend"><span><i class="dep"></i>Depositaste</span><span><i class="got"></i>Recibiste</span></div></div>
         <div class="tbl"><table>
           <thead><tr><th class="l">Año</th><th class="l"></th><th>Depositaste</th><th>Recibiste</th><th class="l" style="width:38%"></th></tr></thead>
@@ -639,7 +635,6 @@ function renderExp(){
   if(backYear!=null) P.push(`<p>Para <b>${backYear}</b> ya habías recibido de regreso todo lo que depositaste. Lo que recibes después de eso es ganancia.</p>`);
   P.push(`<p>El <b>${irr!=null?pct(irr,1):'—'} anual</b> es como si tu dinero hubiera estado en una cuenta que paga ese porcentaje cada año sobre lo que tenías adentro en cada momento. Toma en cuenta <b>cuándo entró y cuándo salió cada dólar</b>, por eso no se calcula solo dividiendo la ganancia entre los años.</p>`);
   if(pend>0.5) P.push(`<p>Lo que te falta recibir (<b>${money(pend)}</b>) está en el <b>Calendario de pagos</b> de la pestaña Proyección, mes por mes.</p>`);
-  $('e-text').innerHTML=P.join('');
   const mx=Math.max(1,...yrs.map(y=>Math.max(by[y].d,by[y].w)));
   $('e-body').innerHTML=yrs.map(y=>{const o=by[y]; return `<tr><td class="l">${y}</td><td class="l">${o.plan&&o.real?'<span class="chip">Real + plan</span>':o.plan?'<span class="chip p">Plan</span>':'<span class="chip m">Real</span>'}</td>
     <td>${o.d?money(o.d):dash}</td><td>${o.w?money(o.w):dash}</td>
