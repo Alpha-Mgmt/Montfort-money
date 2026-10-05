@@ -128,6 +128,12 @@ tr.closed .lock{color:var(--mint)}
 .legend{display:flex;gap:18px;font-size:.82rem;color:var(--muted)}
 .legend i{display:inline-block;width:22px;height:0;border-top:2.5px solid #0B7A5A;vertical-align:middle;margin-right:6px}
 .legend i.d{border-top-style:dashed;opacity:.8}
+.sched-note{margin:0 0 12px;color:var(--ink-2);font-size:.9rem;line-height:1.5}
+.sched{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
+.sched .yr{grid-column:1/-1;font:700 .75rem var(--sans);letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3,#7a8699);margin-top:6px}
+.sched .pm{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:rgba(27,36,51,.04);font-size:.88rem}
+.sched .pm b{font-variant-numeric:tabular-nums}
+.sched .pm.last{background:rgba(16,185,129,.12)}
 .chip{display:inline-block;font:600 .7rem var(--sans);letter-spacing:.4px;padding:3px 9px;border-radius:999px;background:rgba(27,36,51,.06);color:var(--ink-2)}
 .chip.p{background:rgba(139,92,246,.12);color:#6D4BD8}
 .chip.m{background:rgba(16,185,129,.14);color:#0B7A5A}
@@ -258,6 +264,12 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
             <tfoot id="y-foot"></tfoot>
           </table>
         </div>
+      </div>
+
+      <div class="card sec" id="p-sched-card" hidden>
+        <div class="sec-h"><h2>Calendario de pagos</h2></div>
+        <p class="sched-note" id="p-sched-note"></p>
+        <div class="sched" id="p-sched"></div>
       </div>
     </div>
   </div>
@@ -492,7 +504,7 @@ function runProj(c){
     const o=p.y[y]||{}, ann=o.r!=null?+o.r:+p.baseAnn||0, W=o.w!=null?+o.w:+p.baseWit||0, A=+o.a||0;
     const mr=Math.pow(1+ann/100,1/12)-1, row={y,kind:'Proyección',bi:bal,ann,wIn:W,ovR:o.r!=null,ovW:o.w!=null,profit:0,wit:0,adj:0,twr:1,months:0,edit:true};
     for(let m=0;m<12;m++){
-      const w=Math.min(W/12,bal), bi=bal-w, pr=bi*mr; bal=bi+pr;
+      const w=Math.min(Array.isArray(o.m)?(+o.m[m]||0):W/12,bal), bi=bal-w, pr=bi*mr; bal=bi+pr;
       if(m===11&&A>0){const a=Math.min(A,bal); bal-=a; row.adj+=a;}
       row.wit+=w;row.profit+=pr;row.twr*=1+mr;row.months++; if(w)cf.push([y*12+m,w]);
       fut.push({x:y+(m+1)/12,v:bal,t:MES[m]+' '+y,proj:true});
@@ -566,7 +578,26 @@ function renderProj(force){
   });
   $('y-foot').innerHTML=`<tr><td class="l" colspan="3">Promedio simple anual (${R.rows.length} años)</td><td>${pct(R.avg)}</td><td>${money(R.totWit)}</td><td class="neg">${R.totAdj?money(-R.totAdj):''}</td><td>${money(R.totPro)}</td><td>${money(R.end)}</td></tr>`
     +(R.irr!=null?`<tr class="avg"><td class="l" colspan="3">Rendimiento anual de tu dinero</td><td>${pct(R.irr)}</td><td class="l" colspan="4" style="font-weight:500;font-size:.85rem">Toma en cuenta cuándo entró y salió cada dólar de tu cuenta</td></tr>`:'');
+  renderSched(c,R);
   drawChart(R);
+}
+
+/* calendario de pagos: meses abiertos del año en curso + meses de cada año proyectado */
+function renderSched(c,R){
+  const p=R.p, list=[];
+  c.months.forEach((m,i)=>{ if(!m.closed && (+m.witUsd||0)>0.004) list.push({y:c.year,m:i,v:+m.witUsd}); });
+  Object.keys(p.y||{}).map(Number).sort((a,b)=>a-b).forEach(y=>{
+    const o=p.y[y]; if(!Array.isArray(o.m)) return;
+    o.m.forEach((v,i)=>{ if((+v||0)>0.004) list.push({y,m:i,v:+v}); });
+  });
+  const card=$('p-sched-card'); card.hidden=!list.length; if(!list.length) return;
+  const tot=list.reduce((a,x)=>a+x.v,0), last=list[list.length-1];
+  $('p-sched-note').innerHTML=`Vas a recibir <b>${money(tot)}</b> en <b>${list.length} pago${list.length>1?'s':''}</b>, el último en <b>${MES[last.m].toLowerCase()} ${last.y}</b>.`
+    +(R.irr!=null?` Contando todo lo que has depositado y retirado desde el inicio, tu dinero habrá rendido <b>${pct(R.irr,1)}</b> al año.`:'');
+  let html='', yy=null;
+  list.forEach((x,i)=>{ if(x.y!==yy){ yy=x.y; html+=`<div class="yr">${x.y}</div>`; }
+    html+=`<div class="pm${i===list.length-1?' last':''}"><span>${MES[x.m]}</span><b>${money(x.v)}</b></div>`; });
+  $('p-sched').innerHTML=html;
 }
 
 function drawChart(R){
@@ -620,6 +651,7 @@ $('p-reset').addEventListener('click',()=>setProj({y:{}}));
 $('y-body').addEventListener('input',e=>{
   const y=e.target.dataset.yr, k=e.target.dataset.k; if(!y||!k) return;
   const c=cur(), all={...((c.proj&&c.proj.y)||{})}, o={...(all[y]||{})}, v=parseFloat(e.target.value);
+  if(k==='w') delete o.m;
   if(e.target.value===''||isNaN(v)) delete o[k]; else o[k]=k==='w'?Math.max(0,v):v;
   if(Object.keys(o).length) all[y]=o; else delete all[y];
   setProj({y:all});
