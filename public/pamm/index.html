@@ -128,6 +128,12 @@ tr.closed .lock{color:var(--mint)}
 .legend{display:flex;gap:18px;font-size:.82rem;color:var(--muted)}
 .legend i{display:inline-block;width:22px;height:0;border-top:2.5px solid #0B7A5A;vertical-align:middle;margin-right:6px}
 .legend i.d{border-top-style:dashed;opacity:.8}
+.exp-text{font-size:1rem;line-height:1.65;color:var(--ink-2)}
+.exp-text p{margin:0 0 12px}.exp-text b{color:var(--ink)}
+.exp-text .big{font-size:1.05rem;padding:14px 18px;border-radius:14px;background:rgba(16,185,129,.10);border:1px solid rgba(16,185,129,.25);color:var(--ink)}
+.ebar{display:flex;flex-direction:column;gap:3px}.ebar i{display:block;height:7px;border-radius:4px}
+.ebar i.dep,.legend i.dep{background:#3F6FD8}.ebar i.got,.legend i.got{background:#10B981}
+.legend i.dep,.legend i.got{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;border:0}
 .sched-note{margin:0 0 12px;color:var(--ink-2);font-size:.9rem;line-height:1.5}
 .sched{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
 .sched .yr{grid-column:1/-1;font:700 .75rem var(--sans);letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3,#7a8699);margin-top:6px}
@@ -161,7 +167,7 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
  <div class="shell">
   <div class="bar">
     <div class="brand">Cuentas PAMM</div>
-    <div class="tabs" role="tablist"><button type="button" role="tab" data-tab="rep" aria-selected="true">Reporte</button><button type="button" role="tab" data-tab="proj" aria-selected="false">Proyección</button></div>
+    <div class="tabs" role="tablist"><button type="button" role="tab" data-tab="rep" aria-selected="true">Reporte</button><button type="button" role="tab" data-tab="proj" aria-selected="false">Proyección</button><button type="button" role="tab" data-tab="exp" aria-selected="false">Explicación</button></div>
     <div class="field"><label for="client">Cliente</label><select id="client"></select></div>
     <div class="field"><label for="corte">Reporte hasta</label><select id="corte"></select></div>
     <div class="status" id="status">Cargando…</div>
@@ -270,6 +276,25 @@ tfoot tr.avg td{background:rgba(16,185,129,.12);color:#0B7A5A;font-size:1rem}
         <div class="sec-h"><h2>Calendario de pagos</h2></div>
         <p class="sched-note" id="p-sched-note"></p>
         <div class="sched" id="p-sched"></div>
+      </div>
+    </div>
+    <div id="tab-exp" hidden>
+      <div class="hd">
+        <div class="hd-top">Cómo se calcula tu rendimiento</div>
+        <h1 id="e-name">—</h1>
+        <span class="meta" id="e-meta"></span>
+        <div class="hd-grid" id="e-kpis"></div>
+      </div>
+      <div class="card sec">
+        <div class="sec-h"><h2>En pocas palabras</h2></div>
+        <div class="exp-text" id="e-text"></div>
+      </div>
+      <div class="card sec">
+        <div class="sec-h"><h2>Tu dinero año por año</h2><div class="legend"><span><i class="dep"></i>Depositaste</span><span><i class="got"></i>Recibiste</span></div></div>
+        <div class="tbl"><table>
+          <thead><tr><th class="l">Año</th><th class="l"></th><th>Depositaste</th><th>Recibiste</th><th class="l" style="width:38%"></th></tr></thead>
+          <tbody id="e-body"></tbody><tfoot id="e-foot"></tfoot>
+        </table></div>
       </div>
     </div>
   </div>
@@ -431,7 +456,7 @@ function renderHist(c,s,k){
   $('h-foot').innerHTML=`<tr><td class="l" colspan="2">Total</td><td>${t.days}</td><td></td><td>${money(t.dep)}</td><td>${money(t.wit)}</td><td class="neg">${t.adj?money(-t.adj):''}</td><td></td><td>${money(t.profit)}</td><td>${money(all[all.length-1].bf)}</td></tr>`;
 }
 
-function renderAll(){renderSelects(); if(cur()){ $('app').hidden=false; $('notice').hidden=true; renderTable(); }}
+function renderAll(){renderSelects(); if(cur()){ $('app').hidden=false; $('notice').hidden=true; renderTable(); renderExp(); }}
 
 /* ---------- save ---------- */
 function queueSave(id){
@@ -514,14 +539,14 @@ function runProj(c){
   }
   const avg=rows.reduce((a,x)=>a+x.pct,0)/rows.length;
   const endM=depleted?depleted.y*12+depleted.m+1:(p.toYear+1)*12;
-  if(bal>0) cf.push([endM,bal]);
+  let cfEndIdx=-1; if(bal>0){cfEndIdx=cf.length; cf.push([endM,bal]);}
   const irr=xirr(cf);
   const st=c.hist&&c.hist[0]?parseD(c.hist[0].s):{y:c.year,m:0,d:1};
   const endX=depleted?depleted.y+(depleted.m+1)/12:p.toYear+1;
   const sum=f=>rows.reduce((a,x)=>a+(+x[f]||0),0);
   const totDep=(c.hist||[]).reduce((a,h)=>a+(+h.dep||0),0)+r.reduce((a,x)=>a+x.dep,0);
   return {p,k,now,cyEnd,rows,avg,depleted,years:endX-(st.y+st.m/12+(st.d-1)/365),
-    irr,totDep,totWit:sum('wit'),totAdj:sum('adj'),totPro:sum('profit'),end:rows[rows.length-1].bf,real,fut};
+    irr,totDep,totWit:sum('wit'),totAdj:sum('adj'),totPro:sum('profit'),end:rows[rows.length-1].bf,real,fut,cf,cfEndIdx};
 }
 
 function xirr(cf){
@@ -582,6 +607,46 @@ function renderProj(force){
   drawChart(R);
 }
 
+/* ---------- explicación para el cliente ---------- */
+function renderExp(){
+  if(tab!=='exp') return;
+  const c=cur(); if(!c) return;
+  const R=runProj(c), cf=R.cf||[];
+  const nowAbs=new Date().getFullYear()*12+new Date().getMonth();
+  const by={}; let dep=0,got=0,gotPast=0;
+  cf.forEach(([t,a],i)=>{ if(i===R.cfEndIdx) return; const y=Math.floor(t/12); const o=by[y]||(by[y]={d:0,w:0,plan:false,real:false});
+    if(a<0){o.d+=-a;dep+=-a;o.real=true;} else {o.w+=a;got+=a; if(t<=nowAbs){gotPast+=a;o.real=true;} else o.plan=true;} });
+  const yrs=Object.keys(by).map(Number).sort((a,b)=>a-b);
+  // promedio de años invertido: cada dólar depositado se empareja con el primer dólar que salió (primero en entrar, primero en salir)
+  const q=[]; let dur=0, matched=0;
+  cf.map(x=>x).sort((a,b)=>a[0]-b[0]).forEach(([t,a],i)=>{
+    if(a<0) q.push([t,-a]);
+    else { let left=a; while(left>0.005&&q.length){ const h=q[0], m=Math.min(left,h[1]); dur+=m*(t-h[0])/12; matched+=m; h[1]-=m; left-=m; if(h[1]<0.005) q.shift(); } }
+  });
+  const avgYears=matched?dur/matched:0;
+  // año en que ya había recibido más de lo que depositó
+  let cumD=0,cumW=0,backYear=null; cf.slice().sort((a,b)=>a[0]-b[0]).forEach(([t,a])=>{ if(a<0) cumD+=-a; else { cumW+=a; if(backYear==null&&cumW>=cumD-0.5&&cumD>0) backYear=Math.floor(t/12);} });
+  const first=yrs[0], last=yrs[yrs.length-1], span=R.years, irr=R.irr;
+  const gain=got-dep, pend=got-gotPast;
+  $('e-name').textContent=c.name;
+  $('e-meta').textContent=`Tu cuenta: ${first}–${last} · ${span.toFixed(1)} años`;
+  const k=(l,v,hi)=>`<div class="hd-item${hi?' hi':''}"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+  $('e-kpis').innerHTML=k('Depositaste',money(dep))+k('Recibes en total',money(got))+k('Ganancia',money(gain))+k('Rendimiento anual real',irr!=null?pct(irr,1):'—',true)
+    +k('Tiempo con nosotros',span.toFixed(1)+' años')+k('Cada dólar estuvo invertido',avgYears?('~'+avgYears.toFixed(1)+' años en promedio'):'—')+k('Ya recibiste',money(gotPast))+k('Te falta recibir',money(pend));
+  const P=[];
+  P.push(`<p class="big">Depositaste <b>${money(dep)}</b> y vas a recibir en total <b>${money(got)}</b>: una ganancia de <b>${money(gain)}</b>. Eso equivale a un rendimiento de <b>${irr!=null?pct(irr,1):'—'} al año</b>.</p>`);
+  P.push(`<p>Tu cuenta va de <b>${first}</b> a <b>${last}</b> (${span.toFixed(1)} años), pero tu dinero <b>no estuvo todo ese tiempo adentro</b>: fuiste depositando en partes y fuiste recibiendo dinero desde antes. En promedio, <b>cada dólar que depositaste estuvo invertido unos ${avgYears.toFixed(1)} años</b>.</p>`);
+  if(backYear!=null) P.push(`<p>Para <b>${backYear}</b> ya habías recibido de regreso todo lo que depositaste. Lo que recibes después de eso es ganancia.</p>`);
+  P.push(`<p>El <b>${irr!=null?pct(irr,1):'—'} anual</b> es como si tu dinero hubiera estado en una cuenta que paga ese porcentaje cada año sobre lo que tenías adentro en cada momento. Toma en cuenta <b>cuándo entró y cuándo salió cada dólar</b>, por eso no se calcula solo dividiendo la ganancia entre los años.</p>`);
+  if(pend>0.5) P.push(`<p>Lo que te falta recibir (<b>${money(pend)}</b>) está en el <b>Calendario de pagos</b> de la pestaña Proyección, mes por mes.</p>`);
+  $('e-text').innerHTML=P.join('');
+  const mx=Math.max(1,...yrs.map(y=>Math.max(by[y].d,by[y].w)));
+  $('e-body').innerHTML=yrs.map(y=>{const o=by[y]; return `<tr><td class="l">${y}</td><td class="l">${o.plan&&o.real?'<span class="chip">Real + plan</span>':o.plan?'<span class="chip p">Plan</span>':'<span class="chip m">Real</span>'}</td>
+    <td>${o.d?money(o.d):dash}</td><td>${o.w?money(o.w):dash}</td>
+    <td class="l"><div class="ebar">${o.d?`<i class="dep" style="width:${o.d/mx*100}%"></i>`:''}${o.w?`<i class="got" style="width:${o.w/mx*100}%"></i>`:''}</div></td></tr>`;}).join('');
+  $('e-foot').innerHTML=`<tr><td class="l" colspan="2">Total</td><td>${money(dep)}</td><td>${money(got)}</td><td class="l">Ganancia: <b>${money(gain)}</b></td></tr>`;
+}
+
 /* calendario de pagos: meses abiertos del año en curso + meses de cada año proyectado */
 function renderSched(c,R){
   const p=R.p, list=[];
@@ -640,8 +705,8 @@ function drawChart(R){
 function setTab(t){
   tab=t; try{localStorage.setItem('pamm-tab',t)}catch(_){}
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
-  $('tab-rep').hidden=t!=='rep'; $('tab-proj').hidden=t!=='proj';
-  renderProj(true);
+  $('tab-rep').hidden=t!=='rep'; $('tab-proj').hidden=t!=='proj'; $('tab-exp').hidden=t!=='exp';
+  renderProj(true); renderExp();
 }
 document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('p-to').addEventListener('change',e=>setProj({toYear:+e.target.value}));
@@ -657,11 +722,11 @@ $('y-body').addEventListener('input',e=>{
   setProj({y:all});
 });
 let rz; window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(tab==='proj'){const c=cur();if(c)drawChart(runProj(c));}},150);});
-try{const t=localStorage.getItem('pamm-tab'); if(t==='proj') tab='proj';}catch(_){}
+try{const t=localStorage.getItem('pamm-tab'); if(t==='proj'||t==='exp') tab=t;}catch(_){}
 
 /* ---------- descargar imagen ---------- */
 $('dl').addEventListener('click',async()=>{
-  const c=cur(), node=$(tab==='proj'?'tab-proj':'tab-rep');
+  const c=cur(), node=$(tab==='proj'?'tab-proj':tab==='exp'?'tab-exp':'tab-rep');
   if(!c||!node||!window.htmlToImage) return;
   const b=$('dl'); b.disabled=true; b.textContent='Generando…';
   // clean version for the client: numbers instead of input boxes, full-width tables
@@ -682,7 +747,7 @@ $('dl').addEventListener('click',async()=>{
     const url=await htmlToImage.toPng(node,{pixelRatio:2,backgroundColor:'#F4F7FB',cacheBust:true,
       filter:n=>!(n.classList&&(n.classList.contains('lock')||n.classList.contains('btn')))});
     const a=document.createElement('a'); a.href=url;
-    a.download=`${slug(c.name)}-${c.year}-${tab==='proj'?'proyeccion':'reporte'}.png`;
+    a.download=`${slug(c.name)}-${c.year}-${tab==='proj'?'proyeccion':tab==='exp'?'explicacion':'reporte'}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ setStatus('No se pudo generar la imagen','err'); }
   snaps.forEach(([i,sp])=>{i.classList.remove('snap');sp.remove();});
