@@ -1150,4 +1150,10 @@ export const es: Record<string, string> = {
   "Done": "Hecho",
   "Up": "Subir",
   "Down": "Bajar",
+  "How long?": "¿Cuánto tarda?",
+  "Remove time": "Quitar tiempo",
+  "Day starts at": "El día empieza a las",
+  "Move pending to": "Mover pendientes a",
+  "Next day": "Día siguiente",
+  "ends": "terminas",
 };
